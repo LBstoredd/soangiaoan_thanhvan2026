@@ -150,7 +150,7 @@ def generate_ai_plan(api_key, topic, domain, age, theme, method):
     """
 
     response = client.models.generate_content(
-        model='gemini-1.5-flash',
+        model='gemini-2.0-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
