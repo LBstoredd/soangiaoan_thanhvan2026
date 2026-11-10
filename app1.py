@@ -16,6 +16,114 @@ from datetime import datetime, timedelta
 import random
 import string
 
+# --- CẤU HÌNH GIAO DIỆN STREAMLIT & THEME XANH MINT HIỆN ĐẠI ---
+st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non Chuyên Sâu", layout="wide")
+
+st.markdown("""
+<style>
+    /* 1. Nền tổng thể Xanh Mint Trắng dịu mắt & Phông chữ hiện đại */
+    .stApp {
+        background: linear-gradient(180deg, #F4FBF9 0%, #FFFFFF 100%);
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #1E293B;
+    }
+
+    /* 2. Thanh menu bên trái (Sidebar) tông Xanh Mint Pastel */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #E6F7F2 0%, #D4F1E8 100%) !important;
+        border-right: 1.5px solid #B2E5D6;
+    }
+    [data-testid="stSidebar"] * {
+        color: #0F5247 !important;
+    }
+
+    /* 3. Tiêu đề ứng dụng sắc nét */
+    h1 {
+        color: #00796B !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.3px;
+        text-shadow: 0 2px 4px rgba(0, 121, 107, 0.08);
+    }
+    h2, h3, h4, h5 {
+        color: #00695C !important;
+        font-weight: 700 !important;
+    }
+
+    /* 4. Nút bấm chính (Primary Buttons) & Nút Tải File Word */
+    div.stButton > button[kind="primary"],
+    div.stDownloadButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #00B894 0%, #00897B 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 10px 24px !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28) !important;
+        transition: all 0.25s ease !important;
+    }
+    div.stButton > button[kind="primary"]:hover,
+    div.stDownloadButton > button[kind="primary"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 184, 148, 0.42) !important;
+        background: linear-gradient(135deg, #00CBA4 0%, #00796B 100%) !important;
+    }
+
+    /* 5. Nút bấm phụ (Secondary Buttons) */
+    div.stButton > button[kind="secondary"] {
+        background-color: #FFFFFF !important;
+        color: #00796B !important;
+        border: 1.5px solid #80CBC4 !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        padding: 8px 18px !important;
+        transition: all 0.2s ease !important;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #E0F2F1 !important;
+        border-color: #00897B !important;
+        transform: translateY(-1px);
+    }
+
+    /* 6. Khung nhập liệu (Input, Textarea, Selectbox) */
+    .stTextInput > div > div > input, 
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div {
+        border-radius: 10px !important;
+        border: 1.5px solid #B2DFDB !important;
+        background-color: #FFFFFF !important;
+        color: #1E293B !important;
+        transition: all 0.25s ease;
+    }
+    .stTextInput > div > div > input:focus, 
+    .stTextArea > div > div > textarea:focus {
+        border-color: #00B894 !important;
+        box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.18) !important;
+    }
+
+    /* 7. Thẻ chứa thông tin, Khung mở rộng & Tabs */
+    [data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        border-radius: 14px !important;
+        border: 1px solid #B2E5D6 !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0 4px 14px rgba(0, 121, 107, 0.04) !important;
+    }
+    button[data-baseweb="tab"] {
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        color: #00796B !important;
+    }
+
+    /* 8. Thanh trượt Slider & Hộp thông báo */
+    .stSlider > div > div > div > div {
+        background-color: #00B894 !important;
+    }
+    div[data-testid="stAlert"] {
+        border-radius: 12px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- BỘ LỌC LÀM SẠCH TỰ ĐỘNG (GỠ SẠCH DẤU *, **, ###, ---) ---
 def clean_markdown_text(raw_text: str) -> str:
     if not raw_text:
@@ -755,9 +863,7 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None, f
     doc.save(filename)
     return filename
 
-# --- CẤU HÌNH GIAO DIỆN STREAMLIT ---
-st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non Chuyên Sâu", layout="wide")
-
+# --- KHỞI TẠO SESSION STATE ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "is_admin" not in st.session_state:
@@ -1042,7 +1148,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         
         st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
         
-        # 1. TIẾP LÀ: TẢI FILE, IN GIÁO ÁN
+        # 1. TẢI FILE, IN GIÁO ÁN
         btn_col1, btn_col2 = st.columns(2)
         with btn_col1:
             template_path = uploaded_template if uploaded_template else None
@@ -1062,16 +1168,16 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             print_button_html = f"""
             <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
                 <button onclick="printLessonPlan()" style="
-                    background: linear-gradient(135deg, #1e7e34, #28a745);
+                    background: linear-gradient(135deg, #00B894, #00897B);
                     color: white;
                     border: none;
                     padding: 10px 24px;
-                    border-radius: 8px;
+                    border-radius: 12px;
                     font-size: 15px;
                     font-weight: bold;
                     cursor: pointer;
                     width: 100%;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                    box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
                     transition: all 0.2s ease;
                 ">
                     🖨️ In Giáo Án Ngay
@@ -1101,14 +1207,14 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             """
             components.html(print_button_html, height=52)
 
-        # 2. RỒI ĐẾN: ĐIỂM SƯ PHẠM, TIẾP THEO LÀ ĐỊNH DẠNG CỘT
+        # 2. ĐIỂM SƯ PHẠM, ĐỊNH DẠNG CỘT
         info_col1, info_col2 = st.columns(2)
         with info_col1:
             st.success("✅ **Điểm sư phạm: 100/100**")
         with info_col2:
             st.info(f"📐 **Định dạng:** {info['display_format']}")
             
-        # 3. RỒI MỚI ĐẾN: KÍCH THƯỚC HIỂN THỊ
+        # 3. KÍCH THƯỚC HIỂN THỊ
         font_size_val = st.slider(
             "🔤 Kích thước chữ hiển thị & In (pt):", 
             min_value=12, 
@@ -1130,9 +1236,9 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 font-size: {font_size_val}pt;
                 line-height: 1.6;
                 padding: 30px 40px;
-                border-radius: 8px;
-                border: 1px solid #d3d3d3;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                border-radius: 12px;
+                border: 1.5px solid #B2E5D6;
+                box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
                 white-space: pre-wrap;
                 text-align: justify;
                 word-wrap: break-word;
@@ -1148,7 +1254,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 st.rerun()
 
 # =========================================================================
-# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (NÂNG CẤP CHUẨN THEO 2 VIDEO: THÁNG & TUẦN)
+# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (THÁNG & TUẦN)
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng (Theo Video 1)", "📋 Kế Hoạch Tuần (Theo Video 2)"])
@@ -1268,7 +1374,6 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 save_plan_to_db(f"Kế Hoạch {m_month_val} - {m_theme_val}", res_month)
             st.success("🎉 Đã hoàn thành Kế hoạch giáo dục tháng!")
 
-        # KẾT QUẢ KẾ HOẠCH THÁNG
         if "saved_month_plan" in st.session_state:
             st.divider()
             m_info = st.session_state["saved_month_info"]
@@ -1294,16 +1399,16 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 print_m_html = f"""
                 <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
                     <button onclick="printMonthPlan()" style="
-                        background: linear-gradient(135deg, #1e7e34, #28a745);
+                        background: linear-gradient(135deg, #00B894, #00897B);
                         color: white;
                         border: none;
                         padding: 10px 24px;
-                        border-radius: 8px;
+                        border-radius: 12px;
                         font-size: 15px;
                         font-weight: bold;
                         cursor: pointer;
                         width: 100%;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                        box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
                     ">
                         🖨️ In Kế Hoạch Tháng Ngay
                     </button>
@@ -1358,9 +1463,9 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                     font-size: {m_font_size}pt;
                     line-height: 1.6;
                     padding: 30px 40px;
-                    border-radius: 8px;
-                    border: 1px solid #d3d3d3;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                    border-radius: 12px;
+                    border: 1.5px solid #B2E5D6;
+                    box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
                     white-space: pre-wrap;
                     text-align: justify;
                     word-wrap: break-word;
@@ -1403,7 +1508,6 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
         st.divider()
         st.markdown("#### 🕒 Phác Thảo Hoạt Động Học Nhanh (Tùy chọn - Để trống AI sẽ tự động điền sinh động)")
 
-        # Ma trận 5 cột tương ứng Thứ Hai -> Thứ Sáu (Đúng theo Video 2)
         col_t2, col_t3, col_t4, col_t5, col_t6 = st.columns(5)
         
         with col_t2:
@@ -1503,7 +1607,6 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 save_plan_to_db(f"Kế Hoạch {w_week_num} - {w_theme_week}", res_week)
             st.success("🎉 Đã hoàn thành Kế hoạch giáo dục tuần!")
 
-        # KẾT QUẢ KẾ HOẠCH TUẦN
         if "saved_week_plan" in st.session_state:
             st.divider()
             w_info = st.session_state["saved_week_info"]
@@ -1529,16 +1632,16 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 print_w_html = f"""
                 <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
                     <button onclick="printWeekPlan()" style="
-                        background: linear-gradient(135deg, #1e7e34, #28a745);
+                        background: linear-gradient(135deg, #00B894, #00897B);
                         color: white;
                         border: none;
                         padding: 10px 24px;
-                        border-radius: 8px;
+                        border-radius: 12px;
                         font-size: 15px;
                         font-weight: bold;
                         cursor: pointer;
                         width: 100%;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                        box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
                     ">
                         🖨️ In Kế Hoạch Tuần Ngay
                     </button>
@@ -1593,9 +1696,9 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                     font-size: {w_font_size}pt;
                     line-height: 1.6;
                     padding: 30px 40px;
-                    border-radius: 8px;
-                    border: 1px solid #d3d3d3;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                    border-radius: 12px;
+                    border: 1.5px solid #B2E5D6;
+                    box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
                     white-space: pre-wrap;
                     text-align: justify;
                     word-wrap: break-word;
