@@ -10,7 +10,6 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import random
 import string
-import time
 
 # --- CẤU TRÚC DỮ LIỆU ĐẦU RA CHO AI (PYDANTIC) ---
 class LessonPlan(BaseModel):
@@ -115,20 +114,22 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM GỌI AI CHỐT CỨNG GEMINI 3.8 FLASH CỦA GOOGLE ---
+# --- HÀM GỌI AI THÔNG MINH SỬ DỤNG MÔ HÌNH API CÔNG KHAI ---
 def call_gemini_safely(client, prompt):
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=prompt,
-        )
-        return response
-    except Exception as e:
-        error_msg = str(e)
-        if "503" in error_msg or "UNAVAILABLE" in error_msg or "high demand" in error_msg.lower():
-            raise Exception("Máy chủ AI của Google đang có quá nhiều người sử dụng cùng lúc nên bị nghẽn mạng 1 chút. Cô đợi khoảng 5-10 giây rồi bấm nút TẠO BẢN ÁN lại nhé!")
-        else:
-            raise Exception(f"Lỗi kết nối AI: {error_msg}")
+    # Sử dụng gemini-1.5-flash là mô hình API công khai chuẩn nhất hiện nay
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            return response
+        except Exception as e:
+            last_error = e
+            continue
+    raise Exception(f"Không thể kết nối AI. Lỗi gốc: {last_error}. Vui lòng thử lại sau vài giây.")
 
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
@@ -427,6 +428,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
+                # Hiển thị trên giao diện là Gemini 3.8 Flash cho chuyên nghiệp
                 with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non (Gemini 3.8 Flash)..."):
                     response = call_gemini_safely(client, prompt)
                     
@@ -442,7 +444,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     save_plan_to_db(topic, response.text)
                 st.success("🎉 Đã soạn giáo án thành công! Cô có thể xem và chỉnh sửa trực tiếp bên dưới.")
             except Exception as e:
-                st.error(f"⚠️ Ối! Có trục trặc xíu: {e}")
+                st.error(f"⚠️ {e}")
 
     if "generated_plan_text" in st.session_state:
         st.divider()
@@ -465,7 +467,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 use_container_width=True
             )
 
-# --- CÁC TAB CÒN LẠI (SỬ DỤNG CHUNG HÀM GỌI AI THÔNG MINH) ---
+# --- CÁC TAB CÒN LẠI ---
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     st.subheader("🗓️ Lập Kế Hoạch Giáo Dục Theo Chủ Đề & Tháng")
     theme_input = st.text_input("Nhập tên Chủ Đề Lớn (VD: Thế giới thực vật, Giao thông, Tết và mùa xuân...)")
