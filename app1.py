@@ -24,7 +24,6 @@ class LessonPlan(BaseModel):
 def init_db():
     conn = sqlite3.connect('mamnon_rag.db')
     cursor = conn.cursor()
-    # Bảng lưu giáo án
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS saved_plans (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +32,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    # Bảng quản lý mã kích hoạt thuê tháng
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS licenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,13 +41,10 @@ def init_db():
             is_active INTEGER DEFAULT 1
         )
     ''')
-    
-    # Tạo sẵn mã master cho anh Bình (Mã: LBSTORE2026)
     cursor.execute('''
         INSERT OR IGNORE INTO licenses (id, license_key, customer_name, expires_at, is_active)
         VALUES (1, 'LBSTORE2026', 'Admin Văn Bình (Master Admin)', '2027-12-31', 1)
     ''')
-    
     conn.commit()
     conn.close()
 
@@ -119,8 +114,8 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM XUẤT FILE WORD (.DOCX) ---
-def export_docx(plan: LessonPlan, info: dict, custom_template=None):
+# --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
+def export_docx_from_text(text_content: str, info: dict, custom_template=None):
     if custom_template:
         doc = Document(custom_template)
     else:
@@ -142,33 +137,17 @@ def export_docx(plan: LessonPlan, info: dict, custom_template=None):
         p_info.add_run(f"• Đề tài: {info['topic']} (Phương pháp: {info['method']})\n").bold = True
         p_info.add_run(f"• Đối tượng: {info['age']}")
 
-    doc.add_heading('I. Mục đích yêu cầu', level=2)
-    for obj in plan.objectives:
-        doc.add_paragraph(f"- {obj}", style='List Bullet')
-
-    doc.add_heading('II. Chuẩn bị', level=2)
-    doc.add_paragraph("Đồ dùng của cô:", style='Normal').runs[0].bold = True
-    for item in plan.teacher_prep:
-        doc.add_paragraph(f"- {item}", style='List Bullet')
-    doc.add_paragraph("Đồ dùng của trẻ:", style='Normal').runs[0].bold = True
-    for item in plan.children_prep:
-        doc.add_paragraph(f"- {item}", style='List Bullet')
-
-    doc.add_heading('III. Cách tiến hành', level=2)
-    for idx, step in enumerate(plan.steps, 1):
-        doc.add_paragraph(f"Bước {idx}: {step.get('step_name', '')}", style='Normal').runs[0].bold = True
-        doc.add_paragraph(f"Hoạt động của cô: {step.get('teacher_action', '')}")
-        doc.add_paragraph(f"Hoạt động của trẻ: {step.get('children_action', '')}")
-
-    doc.add_heading('IV. Đánh giá sau giờ dạy', level=2)
-    doc.add_paragraph(plan.assessment)
+    # Đưa toàn bộ nội dung từ khung chỉnh sửa vào file Word theo từng đoạn
+    for line in text_content.split('\n'):
+        if line.strip():
+            doc.add_paragraph(line)
 
     filename = f"GiaoAn_{info['topic'].replace(' ', '_')}.docx"
     doc.save(filename)
     return filename
 
 # --- CẤU HÌNH GIAO DIỆN STREAMLIT ---
-st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non", layout="wide")
+st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non Chuyên Sâu", layout="wide")
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -199,14 +178,13 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo/Hotline Admin:\n  `0939.72.9009` (LB Store ĐTDD)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo/Hotline Admin:\n  `0939.72.9009` (ĐTDD LB store)\n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
 st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, lên kế hoạch tháng, sáng tác trò chơi, viết sổ liên lạc và quản lý lớp học tự động.")
 
-# Thanh sidebar cấu hình
 with st.sidebar:
     st.header("⚙️ Cấu hình hệ thống")
     api_key = st.text_input("Nhập Google Gemini API Key", type="password")
@@ -268,7 +246,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         status_text = "🟢 Đang hoạt động" if l_active == 1 else "🔴 Đã khóa"
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
-# --- TAB 1: SOẠN GIÁO ÁN CHUẨN ---
+# --- TAB 1: SOẠN GIÁO ÁN CHUẨN (CÓ CHỈNH SỬA TRỰC TIẾP) ---
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Soạn Giáo Án Chi Tiết Tự Động")
     col1, col2 = st.columns(2)
@@ -299,57 +277,47 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 - Độ tuổi: {age_group}
                 - Phương pháp: {method}
                 
-                Yêu cầu văn phong sư phạm mầm non chuẩn mực (xưng hô cô - trẻ, có hoạt động gây hứng thú, đàm thoại, thực hành và nhận xét). Trả về đúng định dạng cấu trúc dữ liệu JSON.
+                Yêu cầu trình bày rõ ràng các phần: Tên bài dạy, Mục đích yêu cầu, Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy.
                 """
                 with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
                     response = client.models.generate_content(
                         model='gemini-3.8-flash',
                         contents=prompt,
-                        config=types.GenerateContentConfig(
-                            response_mime_type="application/json",
-                            response_schema=LessonPlan,
-                            temperature=0.7,
-                        ),
                     )
-                    plan = LessonPlan.model_validate_json(response.text)
                     
-                    info = {
+                    # Lưu vào session_state để giữ lại nội dung chỉnh sửa
+                    st.session_state["generated_plan_text"] = response.text
+                    st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
                         "theme": theme, "domain": domain, "topic": topic, "method": method, "age": age_group
                     }
                     
                     save_plan_to_db(topic, response.text)
-
-                st.success("🎉 Đã soạn giáo án thành công và tự động lưu vào kho lịch sử!")
-                
-                st.subheader(f"📖 {plan.title}")
-                st.markdown(f"**🎯 Mục đích yêu cầu:**")
-                for obj in plan.objectives:
-                    st.markdown(f"- {obj}")
-                
-                with st.expander("Xem chi tiết Cách tiến hành theo phương pháp mới", expanded=True):
-                    for step in plan.steps:
-                        st.markdown(f"**{step.get('step_name')}**")
-                        c_col1, c_col2 = st.columns(2)
-                        with c_col1:
-                            st.info(f"**Hoạt động của cô:**\n\n{step.get('teacher_action')}")
-                        with c_col2:
-                            st.success(f"**Hoạt động của trẻ:**\n\n{step.get('children_action')}")
-
-                template_path = uploaded_template if uploaded_template else None
-                docx_file = export_docx(plan, info, template_path)
-
-                with open(docx_file, "rb") as file:
-                    st.download_button(
-                        label="📥 Tải xuống File Word (.docx) chuẩn",
-                        data=file,
-                        file_name=docx_file,
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        type="primary",
-                        use_container_width=True
-                    )
+                st.success("🎉 Đã soạn giáo án thành công! Cô có thể xem và chỉnh sửa trực tiếp bên dưới.")
             except Exception as e:
                 st.error(f"Đã xảy ra lỗi khi gọi AI: {e}")
+
+    # Hiển thị khung chỉnh sửa trực tiếp nếu đã có giáo án được tạo
+    if "generated_plan_text" in st.session_state:
+        st.divider()
+        st.markdown("### ✏️ Chỉnh sửa nội dung giáo án trực tiếp:")
+        st.info("💡 Cô có thể sửa chữ trực tiếp trong ô dưới đây theo ý muốn trước khi tải về file Word!")
+        
+        edited_text = st.text_area("Nội dung giáo án:", st.session_state["generated_plan_text"], height=400)
+        
+        info = st.session_state["plan_info"]
+        template_path = uploaded_template if uploaded_template else None
+        docx_file = export_docx_from_text(edited_text, info, template_path)
+
+        with open(docx_file, "rb") as file:
+            st.download_button(
+                label="📥 Tải xuống File Word (.docx) đã chỉnh sửa",
+                data=file,
+                file_name=docx_file,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                type="primary",
+                use_container_width=True
+            )
 
 # --- TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ ---
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
@@ -366,7 +334,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             with st.spinner("Đang lập kế hoạch chủ đề..."):
                 res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
                 st.success("Đã hoàn thành kế hoạch chủ đề cho cô:")
-                st.markdown(res.text)
+                st.markdown(res.text, unsafe_allow_html=True)
 
 # --- TAB 3: TRÒ CHƠI & ĐỐ VUI ---
 elif app_mode == "🎯 Trò Chơi & Đố Vui":
@@ -383,7 +351,7 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
             with st.spinner("Đang sáng tác nội dung..."):
                 res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
                 st.success("Đã hoàn thành tác phẩm cho cô:")
-                st.markdown(res.text)
+                st.markdown(res.text, unsafe_allow_html=True)
 
 # --- TAB 4: SỔ LIÊN LẠC & ZALO ---
 elif app_mode == "💬 Sổ Liên Lạc & Zalo":
@@ -401,9 +369,9 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                 with st.spinner("Đang soạn tin..."):
                     res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
                     st.success("Mẫu tin nhắn Zalo:")
-                    st.markdown(res.text)
+                    st.markdown(res.text, unsafe_allow_html=True)
     else:
-        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Pepsi : ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Minh Đạt: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             if not api_key:
                 st.error("Vui lòng nhập API Key!")
@@ -413,7 +381,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                 with st.spinner("Đang viết lời nhận xét..."):
                     res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
                     st.success("Lời nhận xét mẫu cho cô:")
-                    st.markdown(res.text)
+                    st.markdown(res.text, unsafe_allow_html=True)
 
 # --- TAB 5: GỢI Ý ĐỒ DÙNG DIY ---
 elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
@@ -429,7 +397,7 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
             with st.spinner("Đang lên ý tưởng chế tạo..."):
                 res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
                 st.success("Ý tưởng đồ dùng tự tạo:")
-                st.markdown(res.text)
+                st.markdown(res.text, unsafe_allow_html=True)
 
 # --- TAB 6: KHO LỊCH SỬ GIÁO ÁN ---
 elif app_mode == "📚 Kho Lịch Sử Giáo Án":
@@ -445,9 +413,8 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                 if cols[1].button("Tải lại Word", key=f"load_{p_id}"):
                     row = get_plan_by_id(p_id)
                     if row:
-                        title_db, json_db = row
-                        plan_obj = LessonPlan.model_validate_json(json_db)
+                        title_db, content_db = row
                         info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Chung", "topic": title_db, "method": "Truyền thống", "age": "4-5 tuổi"}
-                        f_path = export_docx(plan_obj, info_dummy)
+                        f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
