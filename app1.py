@@ -133,12 +133,19 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None):
 
         p_info = doc.add_paragraph()
         p_info.add_run(f"• Chủ đề lớn: {info['theme']}\n").bold = True
+        p_info.add_run(f"• Chế độ soạn thảo: {info['mode']} | Hiển thị: {info['display_format']}\n")
         p_info.add_run(f"• Loại hoạt động: {info['activity_type']} | Độ tuổi: {info['age']}\n")
         p_info.add_run(f"• Lĩnh vực: {info['domain']} ({info['sub_category']})\n").bold = True
         p_info.add_run(f"• Dạng tiết (ROUTE): {info['route_type']}\n")
         p_info.add_run(f"• Đề tài: {info['topic']} (Phương pháp: {info['method']})\n").bold = True
         if info['extras']:
-            p_info.add_run(f"• Tích hợp: {', '.join(info['extras'])}")
+            p_info.add_run(f"• Yêu cầu tích hợp: {', '.join(info['extras'])}\n")
+        if info['custom_goals']:
+            p_info.add_run(f"• Mục tiêu cần đạt & Mã MT: {info['custom_goals']}\n")
+        if info['custom_ideas']:
+            p_info.add_run(f"• Yêu cầu bổ sung của GV: {info['custom_ideas']}\n")
+        if info['auto_assessment']:
+            p_info.add_run(f"• Tự động tạo đánh giá cuối ngày: Bật")
 
     for line in text_content.split('\n'):
         if line.strip():
@@ -182,7 +189,7 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (Văn Bình)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (ĐTDD LB store)\n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
@@ -242,7 +249,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô vân  - Mầm Non phước thạnh)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
@@ -276,6 +283,40 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         class_name = st.text_input("Tên lớp", "Lớp Chồi 1 (4-5 tuổi)")
         theme = st.text_input("Chủ đề lớn / Nhánh", "Thế giới thực vật")
 
+    st.markdown("### CHẾ ĐỘ SOẠN THẢO *")
+    c_mode1, c_mode2 = st.columns(2)
+    with c_mode1:
+        mode_gv = st.button("🌱 Giáo án thường\nChuẩn mực, tinh gọn, rõ ràng theo đúng phân phối chương trình.", use_container_width=True)
+    with c_mode2:
+        mode_gioi = st.button("⭐ Thi GV Giỏi\nStorytelling, tình huống sáng tạo nhưng KHÔNG vượt chuẩn tuổi.", use_container_width=True)
+    
+    if "soan_mode_val" not in st.session_state:
+        st.session_state["soan_mode_val"] = "Giáo án thường"
+    
+    if mode_gv:
+        st.session_state["soan_mode_val"] = "Giáo án thường"
+    if mode_gioi:
+        st.session_state["soan_mode_val"] = "Thi GV Giỏi"
+        
+    st.info(f"👉 Đang chọn chế độ soạn thảo: **{st.session_state['soan_mode_val']}**")
+
+    st.markdown("### ĐỊNH DẠNG HIỂN THỊ GIÁO ÁN")
+    c_fmt1, c_fmt2 = st.columns(2)
+    with c_fmt1:
+        fmt_1col = st.button("📄 1 Cột chuẩn (Toàn cảnh)\nLời dẫn, câu hỏi & hành động của cô theo gạch đầu dòng (-)", use_container_width=True)
+    with c_fmt2:
+        fmt_2col = st.button("📊 2 Cột (Cô & Trẻ)\nHoạt động của giáo viên song song nhiệm vụ dự kiến của trẻ", use_container_width=True)
+        
+    if "display_fmt_val" not in st.session_state:
+        st.session_state["display_fmt_val"] = "1 Cột chuẩn"
+        
+    if fmt_1col:
+        st.session_state["display_fmt_val"] = "1 Cột chuẩn"
+    if fmt_2col:
+        st.session_state["display_fmt_val"] = "2 Cột (Cô & Trẻ)"
+        
+    st.info(f"👉 Đang chọn định dạng: **{st.session_state['display_fmt_val']}**")
+
     st.markdown("### 1. Độ tuổi học sinh:")
     age_group = st.radio("Chọn độ tuổi", ["3-12 th", "12-18 th", "18-24 th", "24-36 th", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], horizontal=True, index=5)
 
@@ -304,7 +345,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         elif domain == "Nhận thức":
             route_type = st.selectbox("Dạng tiết", ["Khám phá khoa học", "Làm quen với toán", "Khám phá xã hội"])
         elif domain == "Ngôn ngữ":
-            route_type = st.selectbox("Dạng tiết", ["Làm quen chữ cái", "Làm quen văn học (Thơ/Truyện)", "Phát triển ngôn ngữ"])
+            route_type = st.selectbox("D dạng tiết", ["Làm quen chữ cái", "Làm quen văn học (Thơ/Truyện)", "Phát triển ngôn ngữ"])
         elif domain == "Thẩm mỹ":
             route_type = st.selectbox("Dạng tiết", ["Âm nhạc", "Tạo hình"])
         else:
@@ -314,25 +355,36 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     goal_structure = st.radio("Lựa chọn cấu trúc", ["1-3 gạch đầu dòng", "2-3 mục chuẩn"], horizontal=True)
 
     st.markdown("### 6. Đề tài bài dạy cụ thể:")
-    topic = st.text_input("Nhập tên đề tài", "Học chữ cái o, ô, ơ")
+    topic = st.text_input("Nhập tên đề tài", "Khám phá sự kỳ diệu của quả cam tươi")
     method = st.selectbox("Phương pháp giảng dạy", ["Truyền thống", "STEAM 5E", "STEAM EDP"])
 
-    st.markdown("### 7. Tích hợp giáo dục STEAM & Chuyên đề cốt lõi:")
-    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+    st.markdown("### 7. YÊU CẦU TÍCH HỢP (TÙY CHỌN) - (Chọn 1-2 mục):")
+    col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
     with col_c1:
-        opt1 = st.checkbox("Bảo vệ môi trường")
+        opt0 = st.checkbox("Không")
     with col_c2:
-        opt2 = st.checkbox("An toàn giao thông")
+        opt1 = st.checkbox("STEAM")
     with col_c3:
-        opt3 = st.checkbox("Quyền trẻ em")
+        opt2 = st.checkbox("CÔNG NGHỆ SỐ")
     with col_c4:
-        opt4 = st.checkbox("Công nghệ số")
+        opt3 = st.checkbox("Bảo vệ môi trường")
+    with col_c5:
+        opt4 = st.checkbox("Quyền trẻ em")
     
     extras = []
-    if opt1: extras.append("Bảo vệ môi trường")
-    if opt2: extras.append("An toàn giao thông")
-    if opt3: extras.append("Quyền trẻ em")
-    if opt4: extras.append("Công nghệ số")
+    if opt1: extras.append("STEAM")
+    if opt2: extras.append("CÔNG NGHỆ SỐ")
+    if opt3: extras.append("Bảo vệ môi trường")
+    if opt4: extras.append("Quyền trẻ em")
+
+    st.markdown("### 8. MỤC TIÊU CẦN ĐẠT & MÃ MỤC TIÊU XÁC THỰC (MT):")
+    custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế (Tùy chọn)", placeholder="VD:\n- Trẻ gọi đúng tên, nhận biết màu sắc, mùi vị, cấu tạo hạt tép quả cam bằng đa giác quan (MT45).\n- Trẻ rèn luyện kỹ năng quan sát, so sánh và phát biểu câu trọn vẹn.\n- Trẻ hào hứng tham gia, có ý thức giữ gìn vệ sinh và bảo vệ môi trường.")
+
+    st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
+    custom_ideas = st.text_area("Nhập ý tưởng riêng (Tùy chọn)", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, cách chia nhóm...")
+
+    st.markdown("### 10. Đánh giá cuối ngày:")
+    auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn: AI tự động biên soạn nội dung nhận xét đánh giá cuối ngày bám sát đề tài.", value=True)
 
     uploaded_template = st.file_uploader("Tải lên mẫu file Word (.docx) của trường (Tùy chọn)", type=["docx"])
 
@@ -344,6 +396,8 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 client = genai.Client(api_key=api_key)
                 prompt = f"""
                 Bạn là chuyên gia giáo dục mầm non chuẩn Bộ GD&ĐT Việt Nam. Hãy soạn một giáo án chi tiết chuẩn xác bằng tiếng Việt với các thông tin sau:
+                - Chế độ soạn thảo: {st.session_state['soan_mode_val']}
+                - Định dạng hiển thị: {st.session_state['display_fmt_val']}
                 - Tên bài dạy: {topic}
                 - Loại hình hoạt động: {activity_type}
                 - Lĩnh vực phát triển: {domain} (Phân loại chi tiết: {sub_category})
@@ -352,9 +406,12 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 - Độ tuổi: {age_group}
                 - Phương pháp: {method}
                 - Cấu trúc mục tiêu: {goal_structure}
-                - Tích hợp thêm: {', '.join(extras) if extras else 'Không'}
+                - Yêu cầu tích hợp: {', '.join(extras) if extras else 'Không'}
+                - Mục tiêu cần đạt & Mã MT tùy chỉnh của giáo viên: {custom_goals if custom_goals else 'Tự động tạo chuẩn'}
+                - Ý tưởng bổ sung của giáo viên: {custom_ideas if custom_ideas else 'Không có'}
+                - Tự động tạo đánh giá cuối ngày (Mục IV): {'Bật' if auto_assessment else 'Tắt'}
                 
-                Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu, Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy.
+                Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
                 with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
                     response = client.models.generate_content(
@@ -366,7 +423,9 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
                         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-                        "route_type": route_type, "topic": topic, "method": method, "age": age_group, "extras": extras
+                        "route_type": route_type, "topic": topic, "method": method, "age": age_group, "extras": extras,
+                        "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
+                        "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment
                     }
                     
                     save_plan_to_db(topic, response.text)
@@ -438,7 +497,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
         summary_topic = st.text_input("Nội dung hoạt động chính (VD: Hôm nay các con học bài thơ 'Cục len', tập tô chữ o...)")
         if st.button("💌 Soạn Tin Nhắn Zalo", type="primary"):
             if not api_key:
-                st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
+                st.error("⚠️ Vui lòng nhập và lưu API Key!")
             else:
                 client = genai.Client(api_key=api_key)
                 prompt = f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối."
@@ -447,10 +506,10 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                     st.success("Mẫu tin nhắn Zalo:")
                     st.markdown(res.text, unsafe_allow_html=True)
     else:
-        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé minh đạt: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             if not api_key:
-                st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
+                st.error("⚠️ Vui lòng nhập và lưu API Key!")
             else:
                 client = genai.Client(api_key=api_key)
                 prompt = f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
@@ -490,7 +549,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                     row = get_plan_by_id(p_id)
                     if row:
                         title_db, content_db = row
-                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Truyền thống", "age": "4-5 tuổi", "extras": []}
+                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Truyền thống", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
                         f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
