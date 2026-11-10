@@ -1,8 +1,10 @@
 import sqlite3
 import json
 import time
+import html
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 from docx import Document
@@ -159,7 +161,7 @@ def build_fast_config():
         except Exception:
             return types.GenerateContentConfig(temperature=0.35)
 
-# --- BỘ KHUNG SƯ PHẠM CHUẨN 100/100 ĐIỂM (TỨC THÌ, KHÔNG SỢ NGHẼN MẠNG) ---
+# --- BỘ KHUNG SƯ PHẠM CHUẨN 100/100 ĐIỂM ---
 def generate_instant_pedagogical_plan(info: dict) -> str:
     today_str = datetime.now().strftime("%Y-%m-%d")
     topic = info.get("topic", "Hoạt động khám phá")
@@ -301,15 +303,15 @@ def generate_fast_ai_content(client, prompt, fallback_info=None):
         return generate_instant_pedagogical_plan(fallback_info)
     raise Exception("Máy chủ AI đang bận, vui lòng thử lại sau ít giây!")
 
-# --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
-def export_docx_from_text(text_content: str, info: dict, custom_template=None):
+# --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA (HỖ TRỢ CHỈNH CỠ CHỮ THEO Ý MUỐN) ---
+def export_docx_from_text(text_content: str, info: dict, custom_template=None, font_size_pt=13):
     if custom_template:
         doc = Document(custom_template)
     else:
         doc = Document()
         style = doc.styles['Normal']
         style.font.name = 'Times New Roman'
-        style.font.size = Pt(13)
+        style.font.size = Pt(font_size_pt)
 
         p_school = doc.add_paragraph()
         p_school.add_run(f"• Trường: {info['school']}\n").bold = True
@@ -616,36 +618,105 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             st.session_state["generated_plan_text"] = result_text
             st.session_state["plan_info"] = plan_info_dict
             save_plan_to_db(topic, result_text)
-        st.success("🎉 Đã hoàn thành giáo án! Xem bản trình bày chuẩn bên dưới:")
+        st.success("🎉 Đã hoàn thành giáo án! Xem và thao tác bên dưới:")
 
     if "generated_plan_text" in st.session_state:
         st.divider()
         info = st.session_state["plan_info"]
         
-        bar_c1, bar_c2, bar_c3 = st.columns([2, 2, 2])
-        with bar_c1:
+        # --- THANH CÔNG CỤ: ĐIỂM SƯ PHẠM, CHỈNH CỠ CHỮ VÀ NÚT THAO TÁC ---
+        st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
+        bar_col1, bar_col2 = st.columns([1, 2])
+        with bar_col1:
             st.success("✅ **Điểm sư phạm: 100/100**")
-        with bar_c2:
             st.info(f"📐 Định dạng: **{info['display_format']}**")
-        with bar_c3:
+        with bar_col2:
+            font_size_val = st.slider("🔤 Kích thước chữ hiển thị & In (pt):", min_value=12, max_value=24, value=14, step=1)
+        
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
             template_path = uploaded_template if uploaded_template else None
-            docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, template_path)
+            docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, template_path, font_size_pt=font_size_val)
             with open(docx_file, "rb") as file:
                 st.download_button(
-                    label="📥 Xuất DOCX (Tải Word Chuẩn)",
+                    label="📥 Tải File Word (.docx)",
                     data=file,
                     file_name=docx_file,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     type="primary",
                     use_container_width=True
                 )
+        with btn_col2:
+            # Nút in giáo án trực tiếp không bị dính giao diện website
+            plan_text_json = json.dumps(st.session_state["generated_plan_text"])
+            topic_title_json = json.dumps(f"Giáo Án: {info['topic']}")
+            print_button_html = f"""
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+                <button onclick="printLessonPlan()" style="
+                    background: linear-gradient(135deg, #1e7e34, #28a745);
+                    color: white;
+                    border: none;
+                    padding: 10px 24px;
+                    border-radius: 8px;
+                    font-size: 15px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    width: 100%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                    transition: all 0.2s ease;
+                ">
+                    🖨️ In Giáo Án Ngay
+                </button>
+            </div>
+            <script>
+            function printLessonPlan() {{
+                var rawContent = {plan_text_json};
+                var docTitle = {topic_title_json};
+                var pWin = window.open('', '_blank');
+                pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
+                pWin.document.write('<style>');
+                pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
+                pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {font_size_val}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
+                pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
+                pWin.document.write('</style></head><body>');
+                pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
+                pWin.document.write('</body></html>');
+                pWin.document.close();
+                pWin.focus();
+                setTimeout(function() {{
+                    pWin.print();
+                    pWin.close();
+                }}, 350);
+            }}
+            </script>
+            """
+            components.html(print_button_html, height=52)
 
-        st.markdown("### 📄 Bản xem trước Giáo Án:")
-        with st.container(border=True):
-            st.markdown(st.session_state["generated_plan_text"])
+        # --- BẢN XEM TRƯỚC TRANG GIẤY TRẮNG CHUẨN SƯ PHẠM ---
+        st.markdown("### 📄 Bản Xem Trước Giáo Án (Trang Giấy In):")
+        escaped_preview_text = html.escape(st.session_state["generated_plan_text"])
+        st.markdown(
+            f"""
+            <div style="
+                background-color: #ffffff;
+                color: #111111;
+                font-family: 'Times New Roman', Times, serif;
+                font-size: {font_size_val}pt;
+                line-height: 1.6;
+                padding: 30px 40px;
+                border-radius: 8px;
+                border: 1px solid #d3d3d3;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                white-space: pre-wrap;
+                text-align: justify;
+                word-wrap: break-word;
+            ">{escaped_preview_text}</div>
+            """,
+            unsafe_allow_html=True
+        )
 
-        with st.expander("✏️ Chỉnh sửa nội dung giáo án trực tiếp (Bấm vào để mở khung sửa chữ)"):
-            edited_text = st.text_area("Nội dung giáo án:", st.session_state["generated_plan_text"], height=400)
+        with st.expander("✏️ Chỉnh sửa nội dung văn bản (Bấm vào để mở khung sửa chữ)"):
+            edited_text = st.text_area("Nội dung giáo án:", st.session_state["generated_plan_text"], height=380)
             if edited_text != st.session_state["generated_plan_text"]:
                 st.session_state["generated_plan_text"] = edited_text
                 st.rerun()
@@ -725,8 +796,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                     try:
                         res_text = generate_fast_ai_content(
                             client,
-                            f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
-                        )
+                            f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}.")
                         st.success("🎉 Lời nhận xét mẫu cho cô:")
                         st.markdown(res_text)
                     except Exception as e:
