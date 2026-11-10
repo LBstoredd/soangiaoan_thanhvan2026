@@ -303,7 +303,7 @@ def generate_fast_ai_content(client, prompt, fallback_info=None):
         return generate_instant_pedagogical_plan(fallback_info)
     raise Exception("Máy chủ AI đang bận, vui lòng thử lại sau ít giây!")
 
-# --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA (HỖ TRỢ CHỈNH CỠ CHỮ THEO Ý MUỐN) ---
+# --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA (HỖ TRỢ CHỈNH CỠ CHỮ) ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None, font_size_pt=13):
     if custom_template:
         doc = Document(custom_template)
@@ -386,29 +386,10 @@ if not st.session_state["authenticated"]:
 st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, lên kế hoạch tháng, sáng tác trò chơi, viết sổ liên lạc và quản lý lớp học tự động.")
 
+# ==========================================
+# SIDEBAR (ĐÃ ĐƯA DANH MỤC TÍNH NĂNG LÊN TRÊN)
+# ==========================================
 with st.sidebar:
-    st.header("⚙️ Cấu hình hệ thống")
-    input_api_key = st.text_input("Nhập Google Gemini API Key", type="password", value=st.session_state["api_key_saved"])
-    
-    if st.button("💾 Xác Nhận Lưu API Key"):
-        if input_api_key.strip():
-            st.session_state["api_key_saved"] = input_api_key.strip()
-            st.success("✅ Đã lưu API Key thành công!")
-        else:
-            st.error("⚠️ Vui lòng nhập API Key hợp lệ!")
-
-    if st.session_state["api_key_saved"]:
-        st.success("🟢 Trạng thái: Đã kết nối AI sẵn sàng!")
-    else:
-        st.warning("🔴 Trạng thái: Chưa nhập API Key (Vẫn tạo được Giáo Án tức thì)!")
-    
-    st.divider()
-    if st.button("🔒 Đăng Xuất / Khóa Lại"):
-        st.session_state["authenticated"] = False
-        st.session_state["is_admin"] = False
-        st.rerun()
-        
-    st.divider()
     st.markdown("### 📌 Danh Mục Tính Năng")
     
     if st.session_state["is_admin"]:
@@ -430,6 +411,28 @@ with st.sidebar:
             "✂️ Gợi Ý Đồ Dùng DIY", 
             "📚 Kho Lịch Sử Giáo Án"
         ])
+
+    st.divider()
+    st.header("⚙️ Cấu hình hệ thống")
+    input_api_key = st.text_input("Nhập Google Gemini API Key", type="password", value=st.session_state["api_key_saved"])
+    
+    if st.button("💾 Xác Nhận Lưu API Key"):
+        if input_api_key.strip():
+            st.session_state["api_key_saved"] = input_api_key.strip()
+            st.success("✅ Đã lưu API Key thành công!")
+        else:
+            st.error("⚠️ Vui lòng nhập API Key hợp lệ!")
+
+    if st.session_state["api_key_saved"]:
+        st.success("🟢 Trạng thái: Đã kết nối AI sẵn sàng!")
+    else:
+        st.warning("🔴 Trạng thái: Chưa nhập API Key (Vẫn tạo được Giáo Án tức thì)!")
+    
+    st.divider()
+    if st.button("🔒 Đăng Xuất / Khóa Lại"):
+        st.session_state["authenticated"] = False
+        st.session_state["is_admin"] = False
+        st.rerun()
 
 api_key = st.session_state["api_key_saved"]
 
@@ -620,23 +623,23 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             save_plan_to_db(topic, result_text)
         st.success("🎉 Đã hoàn thành giáo án! Xem và thao tác bên dưới:")
 
+    # =========================================================================
+    # KHU VỰC KẾT QUẢ: TÙY CHỈNH TRÌNH BÀY & THAO TÁC (ĐÃ SẮP XẾP LẠI THỨ TỰ)
+    # =========================================================================
     if "generated_plan_text" in st.session_state:
         st.divider()
         info = st.session_state["plan_info"]
         
-        # --- THANH CÔNG CỤ: ĐIỂM SƯ PHẠM, CHỈNH CỠ CHỮ VÀ NÚT THAO TÁC ---
-        st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
-        bar_col1, bar_col2 = st.columns([1, 2])
-        with bar_col1:
-            st.success("✅ **Điểm sư phạm: 100/100**")
-            st.info(f"📐 Định dạng: **{info['display_format']}**")
-        with bar_col2:
-            font_size_val = st.slider("🔤 Kích thước chữ hiển thị & In (pt):", min_value=12, max_value=24, value=14, step=1)
+        # Lấy kích thước chữ hiện tại từ session_state (mặc định 14pt)
+        current_font_size = st.session_state.get("font_size_slider", 14)
         
+        st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
+        
+        # 1. TIẾP LÀ: TẢI FILE, IN GIÁO ÁN
         btn_col1, btn_col2 = st.columns(2)
         with btn_col1:
             template_path = uploaded_template if uploaded_template else None
-            docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, template_path, font_size_pt=font_size_val)
+            docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, template_path, font_size_pt=current_font_size)
             with open(docx_file, "rb") as file:
                 st.download_button(
                     label="📥 Tải File Word (.docx)",
@@ -647,7 +650,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     use_container_width=True
                 )
         with btn_col2:
-            # Nút in giáo án trực tiếp không bị dính giao diện website
             plan_text_json = json.dumps(st.session_state["generated_plan_text"])
             topic_title_json = json.dumps(f"Giáo Án: {info['topic']}")
             print_button_html = f"""
@@ -676,7 +678,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
                 pWin.document.write('<style>');
                 pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
-                pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {font_size_val}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
+                pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {current_font_size}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
                 pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
                 pWin.document.write('</style></head><body>');
                 pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
@@ -692,7 +694,24 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             """
             components.html(print_button_html, height=52)
 
-        # --- BẢN XEM TRƯỚC TRANG GIẤY TRẮNG CHUẨN SƯ PHẠM ---
+        # 2. RỒI ĐẾN: ĐIỂM SƯ PHẠM, TIẾP THEO LÀ ĐỊNH DẠNG CỘT
+        info_col1, info_col2 = st.columns(2)
+        with info_col1:
+            st.success("✅ **Điểm sư phạm: 100/100**")
+        with info_col2:
+            st.info(f"📐 **Định dạng:** {info['display_format']}")
+            
+        # 3. RỒI MỚI ĐẾN: KÍCH THƯỚC HIỂN THỊ
+        font_size_val = st.slider(
+            "🔤 Kích thước chữ hiển thị & In (pt):", 
+            min_value=12, 
+            max_value=24, 
+            value=current_font_size, 
+            step=1, 
+            key="font_size_slider"
+        )
+        
+        # 4. BẢN XEM TRƯỚC GIÁO ÁN (TRANG GIẤY IN TRẮNG)
         st.markdown("### 📄 Bản Xem Trước Giáo Án (Trang Giấy In):")
         escaped_preview_text = html.escape(st.session_state["generated_plan_text"])
         st.markdown(
@@ -796,7 +815,8 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                     try:
                         res_text = generate_fast_ai_content(
                             client,
-                            f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}.")
+                            f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
+                        )
                         st.success("🎉 Lời nhận xét mẫu cho cô:")
                         st.markdown(res_text)
                     except Exception as e:
