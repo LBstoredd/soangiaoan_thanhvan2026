@@ -972,7 +972,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         elif domain == "Thẩm mỹ":
             sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe nhạc", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"])
             if sub_category == "Tạo hình":
-                # Cho phần Tiết theo mẫu / Tiết theo đề tài vào trong một container viền đẹp mắt
                 with st.container(border=True):
                     st.markdown("🎨 **Phân loại tiết Tạo hình**")
                     art_type_val = st.radio("Chọn hình thức tiết học:", ["Tiết theo mẫu", "Tiết theo đề tài"], horizontal=True, key="art_radio_key")
