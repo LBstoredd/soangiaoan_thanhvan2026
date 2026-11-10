@@ -379,11 +379,11 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (Văn Bình)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` \n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
-st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
+st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non by LBStore")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, lên kế hoạch tháng, sáng tác trò chơi, viết sổ liên lạc và quản lý lớp học tự động.")
 
 # ==========================================
@@ -442,7 +442,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Vân - Mầm Non Phước Thạnh)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
@@ -805,7 +805,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                     except Exception as e:
                         st.error(f"⚠️ {e}")
     else:
-        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Minh Đạt-pepsi: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             if not api_key:
                 st.error("⚠️ Vui lòng nhập API Key!")
