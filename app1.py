@@ -94,13 +94,6 @@ def get_all_licenses():
 def save_plan_to_db(title, content_json):
     conn = sqlite3.connect('mamnon_rag.db')
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO saved_plans (title, content) VALUES (?, ?)", (title, content_json))
-    conn.commit()
-    conn.close()
-
-def get_all_saved_plans():
-    conn = sqlite3.connect('mamnon_rag.db')
-    cursor = conn.cursor()
     cursor.execute("SELECT id, title, created_at FROM saved_plans ORDER BY id DESC")
     rows = cursor.fetchall()
     conn.close()
@@ -133,11 +126,10 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None):
 
         p_info = doc.add_paragraph()
         p_info.add_run(f"• Chủ đề lớn: {info['theme']}\n").bold = True
-        p_info.add_run(f"• Lĩnh vực: {info['domain']}\n")
+        p_info.add_run(f"• Lĩnh vực phát triển: {info['domain']} ({info['sub_category']})\n").bold = True
         p_info.add_run(f"• Đề tài: {info['topic']} (Phương pháp: {info['method']})\n").bold = True
         p_info.add_run(f"• Đối tượng: {info['age']}")
 
-    # Đưa toàn bộ nội dung từ khung chỉnh sửa vào file Word theo từng đoạn
     for line in text_content.split('\n'):
         if line.strip():
             doc.add_paragraph(line)
@@ -178,7 +170,7 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo/Hotline Admin:\n  `0939.72.9009` (ĐTDD LB store)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (Văn Bình)\n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
@@ -224,7 +216,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Vân - Mầm Non Phước Thạnh)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô vân  - Mầm Non Phước Thạnh)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
@@ -246,7 +238,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         status_text = "🟢 Đang hoạt động" if l_active == 1 else "🔴 Đã khóa"
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
-# --- TAB 1: SOẠN GIÁO ÁN CHUẨN (CÓ CHỈNH SỬA TRỰC TIẾP) ---
+# --- TAB 1: SOẠN GIÁO ÁN CHUẨN ---
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Soạn Giáo Án Chi Tiết Tự Động")
     col1, col2 = st.columns(2)
@@ -257,6 +249,17 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         age_group = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"])
     with col2:
         domain = st.selectbox("Lĩnh vực phát triển", ["Thể chất", "Nhận thức", "Ngôn ngữ", "Thẩm mỹ", "Tình cảm - KNXH"])
+        
+        sub_category = ""
+        if domain == "Nhận thức":
+            sub_category = st.selectbox("Phân loại chi tiết (Nhận thức)", ["Toán", "Khám phá"])
+        elif domain == "Ngôn ngữ":
+            sub_category = st.selectbox("Phân loại chi tiết (Ngôn ngữ)", ["Chữ cái - tiết tập tô", "Làm quen", "Trò chơi", "Thơ", "Truyện"])
+        elif domain == "Thẩm mỹ":
+            sub_category = st.selectbox("Phân loại chi tiết (Thẩm mỹ)", ["Âm nhạc - Dạy hát", "Nghe nhạc", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"])
+        else:
+            sub_category = st.text_input("Hoạt động cụ thể", "Hoạt động chung")
+
         theme = st.text_input("Chủ đề lớn", "Trường mầm non")
         method = st.selectbox("Phương pháp giảng dạy chuyên sâu", ["Truyền thống", "STEAM 5E", "STEAM EDP"])
         topic = st.text_input("Tên đề tài bài dạy", "Học chữ cái o, ô, ơ")
@@ -272,12 +275,12 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 prompt = f"""
                 Bạn là chuyên gia giáo dục mầm non chuẩn Bộ GD&ĐT Việt Nam. Hãy soạn một giáo án chi tiết chuẩn xác bằng tiếng Việt với các thông tin sau:
                 - Tên bài dạy: {topic}
-                - Lĩnh vực: {domain}
+                - Lĩnh vực phát triển: {domain} (Phân loại chi tiết: {sub_category})
                 - Chủ đề: {theme}
                 - Độ tuổi: {age_group}
                 - Phương pháp: {method}
                 
-                Yêu cầu trình bày rõ ràng các phần: Tên bài dạy, Mục đích yêu cầu, Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy.
+                Yêu cầu trình bày rõ ràng các phần: Tên bài dạy, Mục đích yêu cầu (phù hợp với hình thức {sub_category}), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy.
                 """
                 with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
                     response = client.models.generate_content(
@@ -285,11 +288,10 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                         contents=prompt,
                     )
                     
-                    # Lưu vào session_state để giữ lại nội dung chỉnh sửa
                     st.session_state["generated_plan_text"] = response.text
                     st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
-                        "theme": theme, "domain": domain, "topic": topic, "method": method, "age": age_group
+                        "theme": theme, "domain": domain, "sub_category": sub_category, "topic": topic, "method": method, "age": age_group
                     }
                     
                     save_plan_to_db(topic, response.text)
@@ -297,7 +299,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             except Exception as e:
                 st.error(f"Đã xảy ra lỗi khi gọi AI: {e}")
 
-    # Hiển thị khung chỉnh sửa trực tiếp nếu đã có giáo án được tạo
     if "generated_plan_text" in st.session_state:
         st.divider()
         st.markdown("### ✏️ Chỉnh sửa nội dung giáo án trực tiếp:")
@@ -414,7 +415,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                     row = get_plan_by_id(p_id)
                     if row:
                         title_db, content_db = row
-                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Chung", "topic": title_db, "method": "Truyền thống", "age": "4-5 tuổi"}
+                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "topic": title_db, "method": "Truyền thống", "age": "4-5 tuổi"}
                         f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
