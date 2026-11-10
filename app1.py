@@ -165,7 +165,7 @@ if not st.session_state["authenticated"]:
             else:
                 st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Cước Thuê Thêm:**\n- Giá cước: **100.000 VNĐ / Tháng**\n- Liên hệ Zalo/Hotline Admin:\n  `0982.155.559` (Văn Bình)\n- Chuyển khoản nhận mã ngay lập tức!")
+        st.info("💡 **Gói Cước Thuê Thêm:**\n- Giá cước: **100.000 VNĐ / Tháng**\n- Liên hệ Zalo/Hotline Admin:\n  `0939729009` (LB store_Bình)\n- Chuyển khoản nhận mã ngay lập tức!")
     
     st.stop() # Dừng lại không cho hiển thị phần mềm bên dưới nếu chưa nhập đúng mã
 
