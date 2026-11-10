@@ -958,38 +958,39 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 2. LOẠI HÌNH HOẠT ĐỘNG *")
     activity_type = st.radio("Chọn loại hoạt động", ["Hoạt động học", "Hoạt động góc / Vui chơi", "Hoạt động ngoài trời", "Hoạt động chiều"], horizontal=True)
 
+    # --- ĐÃ CĂN CHỈNH NGAY NGẮN THẲNG HÀNG PHẦN 3 VÀ 4 ---
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown("### 3. LĨNH VỰC PHÁT TRIỂN *")
-        domain = st.selectbox("Lĩnh vực", ["Thể chất", "Nhận thức", "Ngôn ngữ", "Thẩm mỹ", "Tình cảm - KNXH"])
+        domain = st.selectbox("Lĩnh vực", ["Thể chất", "Nhận thức", "Ngôn ngữ", "Thẩm mỹ", "Tình cảm - KNXH"], key="domain_select_box")
         
         sub_category = ""
         art_type_val = ""
         if domain == "Nhận thức":
-            sub_category = st.selectbox("Phân loại chi tiết", ["Khám phá", "Toán"])
+            sub_category = st.selectbox("Phân loại chi tiết", ["Khám phá", "Toán"], key="sub_nhan_thuc")
         elif domain == "Ngôn ngữ":
-            sub_category = st.selectbox("Phân loại chi tiết", ["Chữ cái - tiết tập tô", "Làm quen", "Trò chơi", "Thơ", "Truyện"])
+            sub_category = st.selectbox("Phân loại chi tiết", ["Chữ cái - tiết tập tô", "Làm quen", "Trò chơi", "Thơ", "Truyện"], key="sub_ngon_ngu")
         elif domain == "Thẩm mỹ":
-            sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe nhạc", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"])
+            sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe nhạc", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"], key="sub_tham_my")
             if sub_category == "Tạo hình":
                 with st.container(border=True):
                     st.markdown("🎨 **Phân loại tiết Tạo hình**")
-                    art_type_val = st.radio("Chọn hình thức tiết học:", ["Tiết theo mẫu", "Tiết theo đề tài"], horizontal=True, key="art_radio_key")
+                    art_type_val = st.radio("Hình thức:", ["Tiết theo mẫu", "Tiết theo đề tài"], horizontal=True, key="art_radio_key")
         else:
-            sub_category = st.text_input("Hoạt động cụ thể", "Phát triển vận động")
+            sub_category = st.text_input("Hoạt động cụ thể", "Phát triển vận động", key="sub_khac")
 
     with col_b:
         st.markdown("### 4. DẠNG TIẾT CHUYÊN MÔN (ROUTE) *")
         if domain == "Thể chất":
-            route_type = st.selectbox("Dạng tiết", ["Vận động cơ bản (VĐCB)", "Trò chơi vận động", "Thể dục sáng"])
+            route_type = st.selectbox("Dạng tiết", ["Vận động cơ bản (VĐCB)", "Trò chơi vận động", "Thể dục sáng"], key="route_tc")
         elif domain == "Nhận thức":
-            route_type = st.selectbox("Dạng tiết", ["Khám phá khoa học", "Làm quen với toán", "Khám phá xã hội"])
+            route_type = st.selectbox("Dạng tiết", ["Khám phá khoa học", "Làm quen với toán", "Khám phá xã hội"], key="route_nt")
         elif domain == "Ngôn ngữ":
-            route_type = st.selectbox("Dạng tiết", ["Làm quen chữ cái", "Làm quen văn học (Thơ/Truyện)", "Phát triển ngôn ngữ"])
+            route_type = st.selectbox("Dạng tiết", ["Làm quen chữ cái", "Làm quen văn học (Thơ/Truyện)", "Phát triển ngôn ngữ"], key="route_nn")
         elif domain == "Thẩm mỹ":
-            route_type = st.selectbox("Dạng tiết", ["Âm nhạc", "Tạo hình"])
+            route_type = st.selectbox("Dạng tiết", ["Âm nhạc", "Tạo hình"], key="route_tm")
         else:
-            route_type = st.selectbox("Dạng tiết", ["Kỹ năng xã hội", "Hoạt động chung"])
+            route_type = st.selectbox("Dạng tiết", ["Kỹ năng xã hội", "Hoạt động chung"], key="route_khac")
 
     st.markdown("### 5. CẤU TRÚC MỤC ĐÍCH - YÊU CẦU:")
     goal_structure = st.radio("Lựa chọn cấu trúc", ["1-3 gạch đầu dòng", "2-3 mục chuẩn (Kiến thức, Kỹ năng, Thái độ)"], horizontal=True, index=1)
@@ -1079,7 +1080,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         
         st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
         
-        # 1. TẢI FILE, IN GIÁO ÁN
+        # --- ĐÃ CĂN CHỈNH NÚT TẢI WORD VÀ IN GIÁO ÁN NGAY THẲNG HÀNG CÂN ĐỐI ---
         btn_col1, btn_col2 = st.columns(2)
         with btn_col1:
             template_path = uploaded_template if uploaded_template else None
@@ -1097,7 +1098,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             plan_text_json = json.dumps(st.session_state["generated_plan_text"])
             topic_title_json = json.dumps(f"Giáo Án: {info['topic']}")
             print_button_html = f"""
-            <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
                 <button onclick="printLessonPlan()" style="
                     background: linear-gradient(135deg, #00B894, #00897B);
                     color: white;
@@ -1136,7 +1137,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             }}
             </script>
             """
-            components.html(print_button_html, height=52)
+            components.html(print_button_html, height=45)
 
         # 2. ĐIỂM SƯ PHẠM, ĐỊNH DẠNG CỘT
         info_col1, info_col2 = st.columns(2)
@@ -1185,7 +1186,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 st.rerun()
 
 # =========================================================================
-# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (THÁNG & TUẦN)
+# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ THÊM ĐỘ TUỔI 2-4 TUỔI CHO CẢ THÁNG & TUẦN)
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng (Theo Video 1)", "📋 Kế Hoạch Tuần (Theo Video 2)"])
@@ -1197,7 +1198,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
         st.markdown("#### ⚡ Nạp Nhanh Trọn Bộ Kế Hoạch Từ Khung 9 Tháng Mẫu")
         col_nap1, col_nap2, col_nap3 = st.columns([2, 2, 2])
         with col_nap1:
-            sample_age_m = st.selectbox("Chọn độ tuổi mẫu", ["Lớp Bé (3-4 tuổi)", "Lớp Nhỡ (4-5 tuổi)", "Lớp Lá (5-6 tuổi)"], index=1, key="sm_age")
+            sample_age_m = st.selectbox("Chọn độ tuổi mẫu", ["Lớp Nhà Trẻ (2-3 tuổi)", "Lớp Bé (3-4 tuổi)", "Lớp Nhỡ (4-5 tuổi)", "Lớp Lá (5-6 tuổi)"], index=1, key="sm_age")
         with col_nap2:
             sample_month_m = st.selectbox("Chọn tháng mẫu", list(SAMPLE_9_MONTHS.keys()), index=1, key="sm_month")
         with col_nap3:
@@ -1219,7 +1220,8 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             m_school = st.text_input("Tên trường", "Trường Mầm Non Phước Thạnh", key="m_tr")
         with m_c2:
             m_class = st.text_input("Lớp học", "Lớp Chồi 1", key="m_lp")
-            m_age = st.selectbox("Độ tuổi", ["3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="m_dt")
+            # --- ĐÃ THÊM ĐỘ TUỔI 2-3 tuôi và 2-4 tuổi CHO KẾ HOẠCH THÁNG ---
+            m_age = st.selectbox("Độ tuổi", ["2-3 tuổi", "2-4 tuổi", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=2, key="m_dt")
 
         m_c3, m_c4 = st.columns(2)
         with m_c3:
@@ -1419,7 +1421,8 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             w_teacher = st.text_input("Tên giáo viên", "Nguyễn Thị Thanh Vân", key="w_gv")
         with w_c2:
             w_class = st.text_input("Lớp học", "Lớp Chồi 1", key="w_lp")
-            w_age = st.selectbox("Độ tuổi", ["3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="w_dt")
+            # --- ĐÃ THÊM ĐỘ TUỔI 2-3 tuổi và 2-4 tuổi CHO KẾ HOẠCH TUẦN ---
+            w_age = st.selectbox("Độ tuổi", ["2-3 tuổi", "2-4 tuổi", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="w_dt")
         with w_c3:
             w_week_num = st.selectbox("Tuần thực hiện", ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4", "Tuần 5"], index=0, key="w_so_tuan")
             w_time_range = st.text_input("Thời gian", "Từ Thứ Hai đến Thứ Sáu", key="w_tg")
