@@ -270,7 +270,7 @@ def check_license(key):
                 if datetime.now().date() <= exp_date:
                     return True, f"✅ Kích hoạt thành công! Xin chào: {c_name} (Hạn đến: {expires_at})"
                 else:
-                    return False, "❌ Mã kích hoạt này đã hết hạn sử dụng. Vui lòng liên hệ gia hạn (100k/tháng)!"
+                    return False, "❌ Mã kích hoạt này đã hết hạn sử dụng. Vui lòng liên hệ 0939.72.9009 gia hạn (100k/tháng)!"
     except Exception:
         pass
     return False, "❌ Mã kích hoạt không hợp lệ hoặc không tồn tại!"
@@ -480,11 +480,11 @@ IV. ĐÁNH GIÁ CUỐI NGÀY
 - Kiến thức, kỹ năng: Trẻ nắm vững mục tiêu bài học ({topic}), thực hiện tốt các yêu cầu sư phạm lứa tuổi {age}; cô kịp thời hỗ trợ các trẻ còn rụt rè để toàn lớp đạt kết quả tốt."""
     return clean_markdown_text(raw_plan)
 
-# --- BỘ CỨU CÁNH GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ (TAB MỚI THEO VIDEO) ---
+# --- BỘ CỨU CÁNH GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ ---
 def generate_instant_digital_plan(info: dict) -> str:
     today_str = datetime.now().strftime("%Y-%m-%d")
-    school = info.get("school", "Trường Mầm Non Sao Mai")
-    teacher = info.get("teacher", "Nguyễn Thị Mai")
+    school = info.get("school", "Trường Mầm Non phước thạnh")
+    teacher = info.get("teacher", "Nguyễn minh Đạt")
     class_name = info.get("class_name", "Lớp Chồi 2")
     age = info.get("age", "5-6 tuổi")
     theme = info.get("theme", "Thế giới thực vật")
@@ -584,7 +584,7 @@ IV. ĐÁNH GIÁ CUỐI NGÀY
 - Kiến thức, kỹ năng & Năng lực số: Trẻ nắm vững nội dung '{topic}', thao tác chạm/chọn và phản xạ với học liệu số ({digital_str}) tự tin, linh hoạt."""
     return clean_markdown_text(text)
 
-# --- BỘ CỨU CÁNH KẾ HOẠCH THÁNG (VIDEO 1) ---
+# --- BỘ CỨU CÁNH KẾ HOẠCH THÁNG ---
 def generate_instant_month_plan(info: dict) -> str:
     school = info.get("school", "Trường Mầm Non")
     teacher = info.get("teacher", "Giáo viên")
@@ -653,7 +653,7 @@ V. PHỐI HỢP CÙNG PHỤ HUYNH TRONG THÁNG:
 - Trao đổi định kỳ tình hình sức khỏe, thói quen ăn ngủ và tiến bộ tâm lý của trẻ.{notes_text}"""
     return clean_markdown_text(text)
 
-# --- BỘ CỨU CÁNH KẾ HOẠCH TUẦN (VIDEO 2: MA TRẬN 5 NGÀY) ---
+# --- BỘ CỨU CÁNH KẾ HOẠCH TUẦN ---
 def generate_instant_week_plan(info: dict) -> str:
     school = info.get("school", "Trường Mầm Non")
     teacher = info.get("teacher", "Giáo viên")
@@ -1036,11 +1036,11 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (Văn Bình)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` \n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
-st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
+st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non by Lbstore")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học tự động.")
 
 # ==========================================
@@ -1101,7 +1101,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Vân - Mầm Non Phước Thạnh)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
@@ -1188,7 +1188,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         elif domain == "Ngôn ngữ":
             sub_category = st.selectbox("Phân loại chi tiết", ["Chữ cái - tiết tập tô", "Làm quen", "Trò chơi", "Thơ", "Truyện"], key="sub_ngon_ngu")
         elif domain == "Thẩm mỹ":
-            sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe nhạc", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"], key="sub_tham_my")
+            sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe hát", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"], key="sub_tham_my")
             if sub_category == "Tạo hình":
                 with st.container(border=True):
                     st.markdown("🎨 **Phân loại tiết Tạo hình**")
