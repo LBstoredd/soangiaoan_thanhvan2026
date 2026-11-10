@@ -154,6 +154,238 @@ def clean_markdown_text(raw_text: str) -> str:
     result = re.sub(r'\n{3,}', '\n\n', result)
     return result.strip()
 
+# --- BỘ ĐỊNH DẠNG NHÃN IN ĐẬM & CĂN ĐỀU 2 BÊN CHO HTML / CLIPBOARD / IN ẤN ---
+FULL_BOLD_PREFIXES = (
+    'GIÁO ÁN', 'KẾ HOẠCH', 'ĐỀ TÀI', 'CHỦ ĐỀ', 'Hoạt động 1', 'Hoạt động 2',
+    'Hoạt động 3', '1. THỨ', '2. THỨ', '3. THỨ', '4. THỨ', '5. THỨ',
+    'BÀI THƠ:', 'BÀI ĐỒNG DAO:', 'HỆ THỐNG CÂU ĐỐ', 'TRÒ CHƠI VẬN ĐỘNG',
+    'MẪU TIN NHẮN', 'LỜI NHẬN XÉT', 'Ý TƯỞNG LÀM ĐỒ DÙNG'
+)
+
+LABEL_BOLD_PREFIXES = (
+    # 3 dòng chuẩn Đánh giá cuối ngày (Mục IV)
+    '- Tình trạng sức khỏe:',
+    '- Trạng thái cảm xúc, thái độ:',
+    '-Trạng thái cảm xúc, thái độ:',
+    '- Trạng thái cảm xúc:',
+    '- Kiến thức, kỹ năng:',
+    '- Kiến thức, kỹ năng & Năng lực số:',
+    # Các mục chuẩn trong giáo án & kế hoạch
+    '1. Kiến thức:', '2. Kỹ năng:', '3. Thái độ:',
+    '2. Kỹ năng & Năng lực số:', '1. Mục tiêu trọng tâm & Năng lực số:',
+    '1. Đồ dùng của cô:', '2. Đồ dùng của trẻ:', '3. Không gian tổ chức:',
+    '1. Mục đích - Yêu cầu:', '2. Chuẩn bị:', '3. Cách chơi:', '4. Luật chơi:',
+    '- Bước 1:', '- Bước 2:', '- Bước 3:', '- Bước 4:',
+    '* Bước 1:', '* Bước 2:', '* Bước 3:', '* Bước 4:',
+    '- Khởi động:', '- Trọng động:', '- Hồi tĩnh:',
+    '* Khởi động:', '* Trọng động:', '* Hồi tĩnh:',
+    'a) ', 'b) ', 'c) ',
+    '- Đón trẻ & Thể dục sáng:', '- Hoạt động học:', '- Hoạt động ngoài trời:',
+    '- Hoạt động chơi ở các góc:', '- Hoạt động chiều:',
+    '- Thể chất:', '- Nhận thức:', '- Ngôn ngữ:', '- Tình cảm - KNXH:', '- Thẩm mỹ:',
+    '- Góc Phân vai:', '- Góc Xây dựng', '- Góc Nghệ thuật', '- Góc Tạo hình:',
+    '- Góc Học tập', '- Góc Âm nhạc:', '- Góc Khám phá',
+    '- Tuần 1:', '- Tuần 2:', '- Tuần 3:', '- Tuần 4:', '- Tuần 5:',
+    'Lớp:', 'Chủ đề:', 'Người soạn:', 'Thời gian thực hiện:', 'Loại hoạt động:', 'Hướng tiếp cận:'
+)
+
+def is_full_bold_heading(line_s: str) -> bool:
+    if re.match(r'^(I|II|III|IV|V|VI)\.\s', line_s):
+        return True
+    if line_s.startswith(FULL_BOLD_PREFIXES):
+        return True
+    if line_s.isupper() and len(line_s) > 5:
+        return True
+    return False
+
+def should_bold_label_before_colon(line_s: str) -> bool:
+    if ':' not in line_s:
+        return False
+    if line_s.startswith(LABEL_BOLD_PREFIXES):
+        return True
+    # Tự động nhận diện các dòng đánh số 1., 2., 3. hoặc gạch đầu dòng ngắn có nhãn trước dấu ':'
+    if re.match(r'^(\d+\.|[-+])\s+[^:]{2,38}:', line_s):
+        return True
+    return False
+
+def format_text_to_standard_html(text_content: str, font_size_pt: int = 14) -> str:
+    """Chuyển văn bản sang HTML chuẩn: Times New Roman, căn đều 2 bên (Justify), in đậm nhãn 3 dòng chuẩn."""
+    html_paragraphs = []
+    for raw_line in text_content.split('\n'):
+        line_s = raw_line.strip()
+        if not line_s:
+            html_paragraphs.append('<div style="height: 6pt;"></div>')
+            continue
+
+        p_style = (
+            f"font-family: 'Times New Roman', Times, serif; "
+            f"font-size: {font_size_pt}pt; "
+            f"line-height: 1.5; "
+            f"text-align: justify; "
+            f"margin: 0 0 4pt 0; "
+            f"color: #000000;"
+        )
+
+        if is_full_bold_heading(line_s):
+            escaped = html.escape(line_s)
+            html_paragraphs.append(f'<p style="{p_style}"><b>{escaped}</b></p>')
+        elif should_bold_label_before_colon(line_s):
+            idx = line_s.find(':')
+            label_part = html.escape(line_s[:idx + 1])
+            rest_part = html.escape(line_s[idx + 1:])
+            html_paragraphs.append(f'<p style="{p_style}"><b>{label_part}</b>{rest_part}</p>')
+        else:
+            escaped = html.escape(line_s)
+            html_paragraphs.append(f'<p style="{p_style}">{escaped}</p>')
+
+    return "".join(html_paragraphs)
+
+# --- HÀM XUẤT FILE WORD (.DOCX) ĐỒNG BỘ 100% TIMES NEW ROMAN, CĂN ĐỀU 2 BÊN & IN ĐẬM NHÃN ---
+def export_docx_from_text(text_content: str, info: dict, custom_template=None, font_size_pt=13):
+    if custom_template:
+        doc = Document(custom_template)
+    else:
+        doc = Document()
+
+    style = doc.styles['Normal']
+    style.font.name = 'Times New Roman'
+    style.font.size = Pt(font_size_pt)
+
+    for raw_line in text_content.split('\n'):
+        line_s = raw_line.strip()
+        if not line_s:
+            continue
+
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p.paragraph_format.space_after = Pt(4)
+        p.paragraph_format.line_spacing = 1.3
+
+        if is_full_bold_heading(line_s):
+            run = p.add_run(line_s)
+            run.bold = True
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(font_size_pt)
+        elif should_bold_label_before_colon(line_s):
+            idx = line_s.find(':')
+            label_part = line_s[:idx + 1]
+            rest_part = line_s[idx + 1:]
+
+            r_bold = p.add_run(label_part)
+            r_bold.bold = True
+            r_bold.font.name = 'Times New Roman'
+            r_bold.font.size = Pt(font_size_pt)
+
+            r_norm = p.add_run(rest_part)
+            r_norm.bold = False
+            r_norm.font.name = 'Times New Roman'
+            r_norm.font.size = Pt(font_size_pt)
+        else:
+            run = p.add_run(line_s)
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(font_size_pt)
+
+    safe_topic = "".join(c if c.isalnum() else "_" for c in info.get('topic', 'GiaoAn'))[:40]
+    filename = f"GiaoAn_{safe_topic}.docx"
+    doc.save(filename)
+    return filename
+
+# --- HÀM HIỂN THỊ THANH THAO TÁC 3 NÚT (TẢI WORD | SAO CHÉP NHANH CLIPBOARD/HTML/TEXT | IN A4) ---
+def render_copy_and_print_buttons(text_content: str, doc_title: str, font_size_pt: int, unique_key: str):
+    formatted_html = format_text_to_standard_html(text_content, font_size_pt)
+    html_json = json.dumps(formatted_html)
+    plain_json = json.dumps(text_content)
+    title_json = json.dumps(doc_title)
+
+    component_code = f"""
+    <div style="display: flex; gap: 12px; width: 100%; align-items: center; margin: 0; padding: 0;">
+        <button id="copyBtn_{unique_key}" onclick="copyFormattedContent_{unique_key}()" style="
+            flex: 1;
+            background: linear-gradient(135deg, #0984E3, #00796B);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(9, 132, 227, 0.25);
+            transition: all 0.2s ease;
+        ">
+            📋 Sao Chép Nhanh (HTML/Text)
+        </button>
+        <button onclick="printFormattedContent_{unique_key}()" style="
+            flex: 1;
+            background: linear-gradient(135deg, #00B894, #00897B);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
+            transition: all 0.2s ease;
+        ">
+            🖨️ In Giáo Án Ngay
+        </button>
+    </div>
+    <script>
+    async function copyFormattedContent_{unique_key}() {{
+        const htmlContent = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>' + {html_json} + '</body></html>';
+        const plainContent = {plain_json};
+        const btn = document.getElementById("copyBtn_{unique_key}");
+        try {{
+            if (navigator.clipboard && window.ClipboardItem) {{
+                const blobHtml = new Blob([htmlContent], {{ type: "text/html" }});
+                const blobText = new Blob([plainContent], {{ type: "text/plain" }});
+                const data = [new ClipboardItem({{ "text/html": blobHtml, "text/plain": blobText }})];
+                await navigator.clipboard.write(data);
+            }} else {{
+                await navigator.clipboard.writeText(plainContent);
+            }}
+            btn.innerHTML = "✅ Đã Sao Chép Chuẩn Word/Zalo!";
+            btn.style.background = "linear-gradient(135deg, #2ECC71, #27AE60)";
+            setTimeout(() => {{
+                btn.innerHTML = "📋 Sao Chép Nhanh (HTML/Text)";
+                btn.style.background = "linear-gradient(135deg, #0984E3, #00796B)";
+            }}, 2500);
+        }} catch (err) {{
+            const ta = document.createElement("textarea");
+            ta.value = plainContent;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            btn.innerHTML = "✅ Đã Sao Chép Văn Bản!";
+            setTimeout(() => {{
+                btn.innerHTML = "📋 Sao Chép Nhanh (HTML/Text)";
+            }}, 2500);
+        }}
+    }}
+
+    function printFormattedContent_{unique_key}() {{
+        const htmlBody = {html_json};
+        const docTitle = {title_json};
+        const pWin = window.open('', '_blank');
+        pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
+        pWin.document.write('<style>');
+        pWin.document.write('@page {{ size: A4; margin: 18mm 20mm 18mm 20mm; }}');
+        pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; text-align: justify; }}');
+        pWin.document.write('</style></head><body>');
+        pWin.document.write(htmlBody);
+        pWin.document.write('</body></html>');
+        pWin.document.close();
+        pWin.focus();
+        setTimeout(function() {{
+            pWin.print();
+            pWin.close();
+        }}, 350);
+    }}
+    </script>
+    """
+    components.html(component_code, height=48)
+
 # --- DATABASE KHUNG 9 THÁNG MẦM NON MẪU ---
 SAMPLE_9_MONTHS = {
     "Tháng 9": {
@@ -270,7 +502,7 @@ def check_license(key):
                 if datetime.now().date() <= exp_date:
                     return True, f"✅ Kích hoạt thành công! Xin chào: {c_name} (Hạn đến: {expires_at})"
                 else:
-                    return False, "❌ Mã kích hoạt này đã hết hạn sử dụng. Vui lòng liên hệ 0939.72.9009 gia hạn (100k/tháng)!"
+                    return False, "❌ Mã kích hoạt này đã hết hạn sử dụng. Vui lòng liên hệ gia hạn (100k/tháng)!"
     except Exception:
         pass
     return False, "❌ Mã kích hoạt không hợp lệ hoặc không tồn tại!"
@@ -390,15 +622,13 @@ def generate_instant_pedagogical_plan(info: dict) -> str:
             f"* Khởi động:\n"
             f"- Cho trẻ đi vòng tròn kết hợp các kiểu đi: đi thường -> đi bằng mũi bàn chân -> đi thường -> đi bằng gót chân -> chạy chậm -> chạy nhanh -> về đội hình hàng ngang.\n"
             f"* Trọng động:\n"
-            f"a) Bài tập phát triển chung (BTPTC):\n"
-            f"- Tập kết hợp lời ca theo chủ đề '{theme}': Động tác Tay (2 lần x 8 nhịp), Chân (4 lần x 8 nhịp), Bụng - Lườn (2 lần x 8 nhịp), Bật (2 lần x 8 nhịp).\n"
+            f"a) Bài tập phát triển chung (BTPTC): Tập kết hợp lời ca theo chủ đề '{theme}': Động tác Tay (2 lần x 8 nhịp), Chân (4 lần x 8 nhịp), Bụng - Lườn (2 lần x 8 nhịp), Bật (2 lần x 8 nhịp).\n"
             f"b) Vận động cơ bản: {topic}\n"
             f"- Cô làm mẫu lần 1: Toàn phần, chuẩn xác, đẹp mắt, không giải thích.\n"
             f"- Cô làm mẫu lần 2: Kết hợp phân tích kỹ thuật từng tư thế chuẩn bị, nhịp thực hiện và tư thế kết thúc.\n"
             f"- Mời 1 - 2 trẻ lên tập thử để cô quan sát và nhận xét mẫu.\n"
             f"- Trẻ thực hiện: Lần lượt 2 trẻ lên thực hiện (2 - 3 lượt), cô bao quát, sửa sai tư thế kịp thời và khích lệ trẻ.\n"
-            f"c) Trò chơi vận động bổ trợ:\n"
-            f"- Cô phổ biến tên trò chơi, cách chơi, luật chơi và tổ chức cho trẻ chơi hào hứng 2 - 3 lần.\n"
+            f"c) Trò chơi vận động bổ trợ: Cô phổ biến tên trò chơi, cách chơi, luật chơi và tổ chức cho trẻ chơi hào hứng 2 - 3 lần.\n"
             f"* Hồi tĩnh:\n"
             f"- Trẻ đi nhẹ nhàng 1 - 2 vòng quanh sân, hít thở sâu, thả lỏng cơ thể."
         )
@@ -406,43 +636,23 @@ def generate_instant_pedagogical_plan(info: dict) -> str:
         if art_type == "Tiết theo mẫu":
             main_activity = (
                 f"Hoạt động 2: Trọng tâm - Tạo hình: {topic} (Tiết theo mẫu)\n"
-                f"* Bước 1: Quan sát và đàm thoại mẫu:\n"
-                f"- Cô cho trẻ quan sát bức tranh/sản phẩm mẫu của cô. Đàm thoại về màu sắc, bố cục, đường nét và cách thể hiện '{topic}'.\n"
-                f"- Cô hỏi ý định của trẻ về cách thực hiện.\n"
-                f"* Bước 2: Cô làm mẫu:\n"
-                f"- Cô làm mẫu cho trẻ quan sát từng bước (chọn màu, cách cầm bút/cầm kéo/cách nặn, bố cục sắp xếp trên giấy).\n"
-                f"- Nhấn mạnh các điểm trọng tâm để sản phẩm đẹp và sáng tạo.\n"
-                f"* Bước 3: Trẻ thực hiện:\n"
-                f"- Nhắc nhở trẻ tư thế ngồi, cách cầm dụng cụ.\n"
-                f"- Trẻ thực hiện bài vẽ/nặn/cắt dán theo mẫu của cô. Cô bao quát lớp, gợi ý giúp đỡ trẻ yếu và khuyến khích trẻ sáng tạo thêm chi tiết phụ.\n"
-                f"* Bước 4: Trưng bày và nhận xét sản phẩm:\n"
-                f"- Trẻ trưng bày sản phẩm lên giá treo.\n"
-                f"- Cô mời trẻ lên nhận xét bài của mình, bài của bạn thích nhất và vì sao; cô nhận xét chung, động viên khích lệ."
+                f"- Bước 1: Quan sát và đàm thoại mẫu: Cô cho trẻ quan sát sản phẩm mẫu của cô, đàm thoại về màu sắc, bố cục, đường nét và cách thể hiện '{topic}'.\n"
+                f"- Bước 2: Cô làm mẫu: Cô làm mẫu cho trẻ quan sát từng bước kết hợp giải thích rõ kỹ thuật cầm bút/cầm kéo/nặn và bố cục trên giấy.\n"
+                f"- Bước 3: Trẻ thực hiện: Nhắc nhở trẻ tư thế ngồi; trẻ thực hiện theo mẫu của cô. Cô bao quát lớp, gợi ý giúp đỡ trẻ và khuyến khích sáng tạo thêm chi tiết phụ.\n"
+                f"- Bước 4: Trưng bày và nhận xét sản phẩm: Trẻ trưng bày sản phẩm lên giá treo; cô mời trẻ nhận xét bài yêu thích và cô tuyên dương cả lớp."
             )
         else:
             main_activity = (
                 f"Hoạt động 2: Trọng tâm - Tạo hình: {topic} (Tiết theo đề tài)\n"
-                f"* Bước 1: Gợi mở và thỏa thuận ý tưởng:\n"
-                f"- Cô trò chuyện cùng trẻ về đề tài '{topic}', gợi ý để trẻ tự nhớ lại đặc điểm hình dáng, màu sắc.\n"
-                f"- Hỏi ý định của từng trẻ: Con sẽ vẽ/nặn/cắt dán như thế nào? Dùng màu gì? Sắp xếp bố cục ra sao?\n"
-                f"* Bước 2: Trẻ thực hiện:\n"
-                f"- Trẻ tiến hành sáng tạo tác phẩm theo đề tài '{topic}' của riêng mình.\n"
-                f"- Cô bao quát lớp, khích lệ sự sáng tạo, độc đáo của trẻ; hỗ trợ trẻ còn lúng túng trong kỹ năng thực hiện.\n"
-                f"* Bước 3: Trưng bày và chia sẻ cảm xúc:\n"
-                f"- Trưng bày toàn bộ sản phẩm của lớp.\n"
-                f"- Cô cho trẻ tự giới thiệu về bức tranh/sản phẩm sáng tạo của mình; cô nhận xét tuyên dương các ý tưởng mới lạ, sáng tạo."
+                f"- Bước 1: Gợi mở và thỏa thuận ý tưởng: Cô trò chuyện cùng trẻ về đề tài '{topic}', hỏi ý định của trẻ về cách vẽ/nặn/cắt dán, màu sắc và bố cục.\n"
+                f"- Bước 2: Trẻ thực hiện: Trẻ tiến hành sáng tạo tác phẩm theo đề tài '{topic}' của riêng mình. Cô bao quát, khích lệ sự độc đáo và hỗ trợ kỹ thuật cho trẻ.\n"
+                f"- Bước 3: Trưng bày và chia sẻ cảm xúc: Trưng bày toàn bộ sản phẩm của lớp; trẻ tự giới thiệu tác phẩm của mình và cô nhận xét tuyên dương."
             )
     else:
         main_activity = (
             f"Hoạt động 2: Trọng tâm - Khám phá & Thực hành ({topic})\n"
-            f"* Bước 1: Quan sát, khám phá và đàm thoại:\n"
-            f"- Cô giới thiệu trực quan nội dung '{topic}' bằng đa giác quan (nhìn, nghe, chạm, trải nghiệm thực tế).\n"
-            f"- Cô đặt hệ thống câu hỏi gợi mở từ dễ đến khó để trẻ tự nhận xét đặc điểm, cấu tạo, ý nghĩa của '{topic}'.\n"
-            f"- Cô chốt lại kiến thức chuẩn xác, ngắn gọn, dễ nhớ cho trẻ lứa tuổi {age}.\n"
-            f"* Bước 2: Luyện tập - Mở rộng ({sub_cat}):\n"
-            f"- Tổ chức cho trẻ thực hành theo cá nhân và theo nhóm nhỏ.\n"
-            f"- Lồng ghép trò chơi củng cố giúp trẻ khắc sâu kiến thức về '{topic}' và phát triển kỹ năng hợp tác.\n"
-            f"- Cô quan sát, gợi ý, hỗ trợ những trẻ còn lúng túng và tuyên dương các ý tưởng sáng tạo của trẻ."
+            f"- Bước 1: Quan sát, khám phá và đàm thoại: Cô giới thiệu trực quan nội dung '{topic}' bằng đa giác quan; đặt câu hỏi gợi mở từ dễ đến khó để trẻ nhận xét đặc điểm, ý nghĩa và chốt kiến thức.\n"
+            f"- Bước 2: Luyện tập - Mở rộng ({sub_cat}): Tổ chức cho trẻ thực hành theo cá nhân và nhóm nhỏ; lồng ghép trò chơi củng cố giúp trẻ khắc sâu kiến thức về '{topic}'."
         )
 
     raw_plan = f"""{school.upper()}
@@ -483,8 +693,8 @@ IV. ĐÁNH GIÁ CUỐI NGÀY
 # --- BỘ CỨU CÁNH GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ ---
 def generate_instant_digital_plan(info: dict) -> str:
     today_str = datetime.now().strftime("%Y-%m-%d")
-    school = info.get("school", "Trường Mầm Non phước thạnh")
-    teacher = info.get("teacher", "Nguyễn minh Đạt")
+    school = info.get("school", "Trường Mầm Non Sao Mai")
+    teacher = info.get("teacher", "Nguyễn Thị Mai")
     class_name = info.get("class_name", "Lớp Chồi 2")
     age = info.get("age", "5-6 tuổi")
     theme = info.get("theme", "Thế giới thực vật")
@@ -563,16 +773,9 @@ Hoạt động 1: Mở đầu - Khơi gợi hứng thú với Công nghệ số 
 - Cô trò chuyện ngắn, kích thích trí tò mò và chuyển tiếp tự nhiên vào phần trọng tâm.
 
 Hoạt động 2: Trọng tâm - Khám phá Đa phương tiện & Tương tác Số (20 - 25 phút)
-- Bước 1: Khám phá kết hợp Học liệu số & Trải nghiệm thực tế:
-  + Cô trình chiếu hình ảnh mô phỏng sinh động / video ngắn sắc nét (thiết kế qua {digital_str}) giúp trẻ quan sát cận cảnh những góc nhìn thú vị về '{topic}'.
-  + Kết hợp cho trẻ trực tiếp cầm nắm, quan sát và thao tác trên đồ dùng vật lý ({child_tools}) bằng đa giác quan.
-  + Cô sử dụng phương pháp ({methods_str}), đặt câu hỏi mở để trẻ thảo luận nhóm và chia sẻ phát hiện của mình.
-- Bước 2: Tương tác Năng lực số - Trẻ thực hành công nghệ:
-  + Cô mời trẻ lên tương tác trực tiếp trên màn hình cảm ứng / bảng tương tác hoặc quét thẻ QR để phân loại, ghép đôi kiến thức về '{topic}'.
-  + Hệ thống AI / Trò chơi số phát âm thanh khen ngợi tức thì khi trẻ chọn đúng, tạo hứng thú mạnh mẽ cho cả lớp.
-- Bước 3: Trò chơi số hóa & Mở rộng sáng tạo:
-  + Tổ chức cho trẻ chơi trò chơi tương tác số theo đội nhóm kết hợp vận động thực tế.
-  + Cô bao quát, hướng dẫn trẻ thao tác đúng cách trên thiết bị và nhắc trẻ giữ khoảng cách mắt an toàn.
+- Bước 1: Khám phá kết hợp Học liệu số & Trải nghiệm thực tế: Cô trình chiếu hình ảnh mô phỏng sinh động / video ngắn sắc nét (thiết kế qua {digital_str}) kết hợp cho trẻ trực tiếp cầm nắm, quan sát đồ dùng vật lý ({child_tools}) bằng đa giác quan.
+- Bước 2: Tương tác Năng lực số - Trẻ thực hành công nghệ: Cô mời trẻ lên tương tác trực tiếp trên màn hình cảm ứng / bảng tương tác hoặc quét thẻ QR để phân loại, ghép đôi kiến thức về '{topic}'.
+- Bước 3: Trò chơi số hóa & Mở rộng sáng tạo: Tổ chức cho trẻ chơi trò chơi tương tác số theo đội nhóm kết hợp vận động thực tế; nhắc trẻ giữ khoảng cách mắt an toàn.
 
 Hoạt động 3: Kết thúc & Củng cố ({outro_str}) (3 - 5 phút)
 - Trợ lý ảo AI cùng cô giáo tổng kết lại những kiến thức bổ ích về '{topic}' và tuyên dương tinh thần chủ động của các bé.
@@ -581,7 +784,7 @@ Hoạt động 3: Kết thúc & Củng cố ({outro_str}) (3 - 5 phút)
 IV. ĐÁNH GIÁ CUỐI NGÀY
 - Tình trạng sức khỏe: Trẻ khỏe mạnh, hào hứng, giữ đúng khoảng cách an toàn khi tương tác với màn hình thiết bị số.
 - Trạng thái cảm xúc, thái độ: Trẻ vô cùng thích thú với nhân vật AI và các hiệu ứng âm thanh, hình ảnh số; tích cực hợp tác cùng bạn.
-- Kiến thức, kỹ năng & Năng lực số: Trẻ nắm vững nội dung '{topic}', thao tác chạm/chọn và phản xạ với học liệu số ({digital_str}) tự tin, linh hoạt."""
+- Kiến thức, kỹ năng: Trẻ nắm vững nội dung '{topic}', thao tác chạm/chọn và phản xạ với học liệu số ({digital_str}) tự tin, linh hoạt."""
     return clean_markdown_text(text)
 
 # --- BỘ CỨU CÁNH KẾ HOẠCH THÁNG ---
@@ -971,39 +1174,6 @@ def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data
 
     return "Đã hoàn thành nội dung cho cô giáo!"
 
-# --- HÀM XUẤT FILE WORD TỰ ĐỘNG IN ĐẬM TIÊU ĐỀ ---
-def export_docx_from_text(text_content: str, info: dict, custom_template=None, font_size_pt=13):
-    if custom_template:
-        doc = Document(custom_template)
-    else:
-        doc = Document()
-        style = doc.styles['Normal']
-        style.font.name = 'Times New Roman'
-        style.font.size = Pt(font_size_pt)
-
-        p_school = doc.add_paragraph()
-        p_school.add_run(f"• Trường: {info.get('school', 'Trường Mầm Non')}\n").bold = True
-        p_school.add_run(f"• Giáo viên: {info.get('teacher', 'Giáo viên')} | Lớp: {info.get('class_name', 'Lớp Mầm Non')}")
-
-        title_text = info.get('doc_title', 'GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG')
-        title = doc.add_heading(title_text, level=1)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    for line in text_content.split('\n'):
-        line_s = line.strip()
-        if line_s:
-            p = doc.add_paragraph()
-            if re.match(r'^(I|II|III|IV|V|VI)\.\s', line_s) or line_s.startswith(('GIÁO ÁN', 'KẾ HOẠCH', 'ĐỀ TÀI', 'CHỦ ĐỀ', 'Hoạt động', '1. THỨ', '2. THỨ', '3. THỨ', '4. THỨ', '5. THỨ')):
-                run = p.add_run(line_s)
-                run.bold = True
-            else:
-                p.add_run(line_s)
-
-    safe_topic = "".join(c if c.isalnum() else "_" for c in info.get('topic', 'KeHoach'))[:40]
-    filename = f"GiaoAn_{safe_topic}.docx"
-    doc.save(filename)
-    return filename
-
 # --- KHỞI TẠO SESSION STATE ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -1036,11 +1206,11 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` \n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (Văn Bình)\n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
-st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non by Lbstore")
+st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học tự động.")
 
 # ==========================================
@@ -1101,7 +1271,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Vân - Mầm Non Phước Thạnh)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
@@ -1188,7 +1358,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         elif domain == "Ngôn ngữ":
             sub_category = st.selectbox("Phân loại chi tiết", ["Chữ cái - tiết tập tô", "Làm quen", "Trò chơi", "Thơ", "Truyện"], key="sub_ngon_ngu")
         elif domain == "Thẩm mỹ":
-            sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe hát", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"], key="sub_tham_my")
+            sub_category = st.selectbox("Phân loại chi tiết", ["Âm nhạc - Dạy hát", "Nghe nhạc", "Múa minh họa", "Gõ đệm theo phách, nhịp", "Tạo hình"], key="sub_tham_my")
             if sub_category == "Tạo hình":
                 with st.container(border=True):
                     st.markdown("🎨 **Phân loại tiết Tạo hình**")
@@ -1276,7 +1446,10 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     I. MỤC ĐÍCH - YÊU CẦU (1. Kiến thức, 2. Kỹ năng, 3. Thái độ)
                     II. CHUẨN BỊ (1. Đồ dùng của cô, 2. Đồ dùng của trẻ)
                     III. TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Ổn định tổ chức; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc)
-                    IV. ĐÁNH GIÁ CUỐI NGÀY (Gồm đúng 3 gạch đầu dòng: - Tình trạng sức khỏe; - Trạng thái cảm xúc, thái độ; - Kiến thức, kỹ năng)
+                    IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng chuẩn:
+                    - Tình trạng sức khỏe: ...
+                    - Trạng thái cảm xúc, thái độ: ...
+                    - Kiến thức, kỹ năng: ...)
                     """
                     result_text = generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=plan_info_dict)
                 except Exception:
@@ -1297,7 +1470,8 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         
         st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
         
-        btn_col1, btn_col2 = st.columns(2)
+        # 1. TẢI FILE WORD, SAO CHÉP NHANH (HTML/TEXT), IN GIÁO ÁN
+        btn_col1, btn_col2 = st.columns([1, 2])
         with btn_col1:
             template_path = uploaded_template if uploaded_template else None
             docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, template_path, font_size_pt=current_font_size)
@@ -1311,56 +1485,21 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     use_container_width=True
                 )
         with btn_col2:
-            plan_text_json = json.dumps(st.session_state["generated_plan_text"])
-            topic_title_json = json.dumps(f"Giáo Án: {info['topic']}")
-            print_button_html = f"""
-            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                <button onclick="printLessonPlan()" style="
-                    background: linear-gradient(135deg, #00B894, #00897B);
-                    color: white;
-                    border: none;
-                    padding: 10px 24px;
-                    border-radius: 12px;
-                    font-size: 15px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    width: 100%;
-                    box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
-                    transition: all 0.2s ease;
-                ">
-                    🖨️ In Giáo Án Ngay
-                </button>
-            </div>
-            <script>
-            function printLessonPlan() {{
-                var rawContent = {plan_text_json};
-                var docTitle = {topic_title_json};
-                var pWin = window.open('', '_blank');
-                pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
-                pWin.document.write('<style>');
-                pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
-                pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {current_font_size}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
-                pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
-                pWin.document.write('</style></head><body>');
-                pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
-                pWin.document.write('</body></html>');
-                pWin.document.close();
-                pWin.focus();
-                setTimeout(function() {{
-                    pWin.print();
-                    pWin.close();
-                }}, 350);
-            }}
-            </script>
-            """
-            components.html(print_button_html, height=45)
+            render_copy_and_print_buttons(
+                st.session_state["generated_plan_text"],
+                f"Giáo Án: {info['topic']}",
+                current_font_size,
+                "tab1_main"
+            )
 
+        # 2. ĐIỂM SƯ PHẠM, ĐỊNH DẠNG CỘT
         info_col1, info_col2 = st.columns(2)
         with info_col1:
             st.success("✅ **Điểm sư phạm: 100/100**")
         with info_col2:
             st.info(f"📐 **Định dạng:** {info['display_format']}")
             
+        # 3. KÍCH THƯỚC HIỂN THỊ
         font_size_val = st.slider(
             "🔤 Kích thước chữ hiển thị & In (pt):", 
             min_value=12, 
@@ -1370,24 +1509,23 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             key="font_size_slider"
         )
         
-        st.markdown("### 📄 Bản Xem Trước Giáo Án (Trang Giấy In):")
-        escaped_preview_text = html.escape(st.session_state["generated_plan_text"])
+        # 4. BẢN XEM TRƯỚC GIÁO ÁN (NHÃN IN ĐẬM, TIMES NEW ROMAN, CĂN ĐỀU 2 BÊN)
+        st.markdown("### 📄 Bản Xem Trước Giáo Án (Trang Giấy In Chuẩn Times New Roman):")
+        formatted_preview_html = format_text_to_standard_html(st.session_state["generated_plan_text"], font_size_val)
         st.markdown(
             f"""
             <div style="
                 background-color: #ffffff;
-                color: #111111;
+                color: #000000;
                 font-family: 'Times New Roman', Times, serif;
                 font-size: {font_size_val}pt;
-                line-height: 1.6;
-                padding: 30px 40px;
+                line-height: 1.5;
+                padding: 35px 45px;
                 border-radius: 12px;
                 border: 1.5px solid #B2E5D6;
                 box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
-                white-space: pre-wrap;
                 text-align: justify;
-                word-wrap: break-word;
-            ">{escaped_preview_text}</div>
+            ">{formatted_preview_html}</div>
             """,
             unsafe_allow_html=True
         )
@@ -1422,20 +1560,18 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
             st.session_state["dg_notes"] = "Lồng ghép nhân vật trợ lý ảo AI dẫn chuyện xuyên suốt tiết học"
             st.success("✅ Đã nạp dữ liệu thử nghiệm mẫu!")
 
-    # --- MỤC I: THÔNG TIN GIÁO VIÊN & LỚP HỌC ---
     with st.container(border=True):
         st.markdown("#### 👤 I. THÔNG TIN GIÁO VIÊN & LỚP HỌC")
         dg_c1, dg_c2, dg_c3, dg_c4 = st.columns([2, 2, 1.2, 1.3])
         with dg_c1:
-            dg_teacher = st.text_input("Tên giáo viên", value=st.session_state.get("dg_teacher", "Nguyễn Thị Thanh Vân"), placeholder="Ví dụ: Nguyễn Thanh Loan", key="in_dg_teacher")
+            dg_teacher = st.text_input("Tên giáo viên", value=st.session_state.get("dg_teacher", "Nguyễn Thị Thanh Vân"), placeholder="Ví dụ: Nguyễn Thị Mai", key="in_dg_teacher")
         with dg_c2:
-            dg_school = st.text_input("Tên trường mầm non", value=st.session_state.get("dg_school", "Trường Mầm Non Phước Thạnh"), placeholder="Ví dụ: Mầm non phước thạnh", key="in_dg_school")
+            dg_school = st.text_input("Tên trường mầm non", value=st.session_state.get("dg_school", "Trường Mầm Non Phước Thạnh"), placeholder="Ví dụ: Mầm non Sao Mai", key="in_dg_school")
         with dg_c3:
             dg_class = st.text_input("Lớp", value=st.session_state.get("dg_class", "Chồi 1"), placeholder="Ví dụ: Chồi 2", key="in_dg_class")
         with dg_c4:
             dg_age = st.selectbox("Độ tuổi trẻ", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=3, key="in_dg_age")
 
-    # --- MỤC II: NỘI DUNG HOẠT ĐỘNG CHÍNH ---
     with st.container(border=True):
         st.markdown("#### 📖 II. NỘI DUNG HOẠT ĐỘNG CHÍNH")
         nd_c1, nd_c2 = st.columns(2)
@@ -1472,7 +1608,6 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
             key="in_dg_goals"
         )
 
-    # --- MỤC III: ĐỒ DÙNG DẠY HỌC & KHÔNG GIAN TỔ CHỨC ---
     with st.container(border=True):
         st.markdown("#### 🧰 III. ĐỒ DÙNG DẠY HỌC & KHÔNG GIAN TỔ CHỨC")
         dd_c1, dd_c2 = st.columns(2)
@@ -1540,7 +1675,6 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
                 key="in_dg_space_req"
             )
 
-    # --- MỤC IV: HƯỚNG TIẾP CẬN & PHƯƠNG PHÁP GIÁO DỤC ---
     with st.container(border=True):
         st.markdown("#### 🎯 IV. HƯỚNG TIẾP CẬN & PHƯƠNG PHÁP GIÁO DỤC")
         pp_c1, pp_c2, pp_c3 = st.columns(3)
@@ -1674,7 +1808,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
                     - Mở đầu: {', '.join(selected_intro)} | Kết thúc: {', '.join(selected_outro)}
                     - Ghi chú thêm: {dg_extra_notes}
 
-                    Trình bày rõ ràng 4 phần: I. MỤC ĐÍCH - YÊU CẦU, II. CHUẨN BỊ HỌC LIỆU & KHÔNG GIAN SỐ, III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG TÍCH HỢP NĂNG LỰC SỐ, IV. ĐÁNH GIÁ CUỐI NGÀY. Tuyệt đối không dùng dấu ### hoặc **.
+                    Trình bày rõ ràng 4 phần: I. MỤC ĐÍCH - YÊU CẦU, II. CHUẨN BỊ HỌC LIỆU & KHÔNG GIAN SỐ, III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG TÍCH HỢP NĂNG LỰC SỐ, IV. ĐÁNH GIÁ CUỐI NGÀY (Gồm đúng 3 dòng: - Tình trạng sức khỏe: ...; - Trạng thái cảm xúc, thái độ: ...; - Kiến thức, kỹ năng: ...). Tuyệt đối không dùng dấu ### hoặc **.
                     """
                     res_digital = generate_fast_ai_content(client, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
                 except Exception:
@@ -1694,12 +1828,12 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         d_font_size = st.session_state.get("d_font_size_slider", 14)
 
         st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
-        db_col1, db_col2 = st.columns(2)
+        db_col1, db_col2 = st.columns([1, 2])
         with db_col1:
             d_docx = export_docx_from_text(st.session_state["saved_digital_plan"], d_info, font_size_pt=d_font_size)
             with open(d_docx, "rb") as f_d:
                 st.download_button(
-                    label="📥 Tải File Word (.docx) Giáo Án Số",
+                    label="📥 Tải File Word (.docx)",
                     data=f_d,
                     file_name=d_docx,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1708,49 +1842,12 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
                     key="dl_digital_btn"
                 )
         with db_col2:
-            d_json_text = json.dumps(st.session_state["saved_digital_plan"])
-            d_title_json = json.dumps(f"Giáo Án Năng Lực Số: {d_info['topic']}")
-            print_d_html = f"""
-            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                <button onclick="printDigitalPlan()" style="
-                    background: linear-gradient(135deg, #00B894, #00897B);
-                    color: white;
-                    border: none;
-                    padding: 10px 24px;
-                    border-radius: 12px;
-                    font-size: 15px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    width: 100%;
-                    box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
-                    transition: all 0.2s ease;
-                ">
-                    🖨️ In Giáo Án Ngay
-                </button>
-            </div>
-            <script>
-            function printDigitalPlan() {{
-                var rawContent = {d_json_text};
-                var docTitle = {d_title_json};
-                var pWin = window.open('', '_blank');
-                pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
-                pWin.document.write('<style>');
-                pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
-                pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {d_font_size}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
-                pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
-                pWin.document.write('</style></head><body>');
-                pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
-                pWin.document.write('</body></html>');
-                pWin.document.close();
-                pWin.focus();
-                setTimeout(function() {{
-                    pWin.print();
-                    pWin.close();
-                }}, 350);
-            }}
-            </script>
-            """
-            components.html(print_d_html, height=45)
+            render_copy_and_print_buttons(
+                st.session_state["saved_digital_plan"],
+                f"Giáo Án Năng Lực Số: {d_info['topic']}",
+                d_font_size,
+                "tab_digital"
+            )
 
         di_c1, di_c2 = st.columns(2)
         with di_c1:
@@ -1768,23 +1865,21 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         )
 
         st.markdown("### 📄 Bản Xem Trước Giáo Án Tích Hợp Năng Lực Số (Trang Giấy In):")
-        escaped_digital_text = html.escape(st.session_state["saved_digital_plan"])
+        formatted_digital_html = format_text_to_standard_html(st.session_state["saved_digital_plan"], d_font_size)
         st.markdown(
             f"""
             <div style="
                 background-color: #ffffff;
-                color: #111111;
+                color: #000000;
                 font-family: 'Times New Roman', Times, serif;
                 font-size: {d_font_size}pt;
-                line-height: 1.6;
-                padding: 30px 40px;
+                line-height: 1.5;
+                padding: 35px 45px;
                 border-radius: 12px;
                 border: 1.5px solid #B2E5D6;
                 box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
-                white-space: pre-wrap;
                 text-align: justify;
-                word-wrap: break-word;
-            ">{escaped_digital_text}</div>
+            ">{formatted_digital_html}</div>
             """,
             unsafe_allow_html=True
         )
@@ -1796,10 +1891,10 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
                 st.rerun()
 
 # =========================================================================
-# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 THÁNG)
+# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐỘ TUỔI 24-36 THÁNG)
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
-    sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng ", "📋 Kế Hoạch Tuần "])
+    sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng (Theo Video 1)", "📋 Kế Hoạch Tuần (Theo Video 2)"])
 
     with sub_tab_month:
         st.subheader("📖 Thiết Kế Kế Hoạch Tháng")
@@ -1919,12 +2014,12 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             m_font_size = st.session_state.get("m_font_size_slider", 14)
 
             st.markdown("### 🛠️ Tùy Chỉnh & Thao Tác Kế Hoạch Tháng")
-            mb_col1, mb_col2 = st.columns(2)
+            mb_col1, mb_col2 = st.columns([1, 2])
             with mb_col1:
                 m_docx = export_docx_from_text(st.session_state["saved_month_plan"], m_info, font_size_pt=m_font_size)
                 with open(m_docx, "rb") as f_m:
                     st.download_button(
-                        label="📥 Tải File Word (.docx) Kế Hoạch Tháng",
+                        label="📥 Tải File Word (.docx)",
                         data=f_m,
                         file_name=m_docx,
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1933,48 +2028,12 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                         key="dl_month_btn"
                     )
             with mb_col2:
-                m_json_text = json.dumps(st.session_state["saved_month_plan"])
-                m_title_json = json.dumps(f"Kế Hoạch Giáo Dục: {m_info['theme']}")
-                print_m_html = f"""
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                    <button onclick="printMonthPlan()" style="
-                        background: linear-gradient(135deg, #00B894, #00897B);
-                        color: white;
-                        border: none;
-                        padding: 10px 24px;
-                        border-radius: 12px;
-                        font-size: 15px;
-                        font-weight: bold;
-                        cursor: pointer;
-                        width: 100%;
-                        box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
-                    ">
-                        🖨️ In Kế Hoạch Tháng Ngay
-                    </button>
-                </div>
-                <script>
-                function printMonthPlan() {{
-                    var rawContent = {m_json_text};
-                    var docTitle = {m_title_json};
-                    var pWin = window.open('', '_blank');
-                    pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
-                    pWin.document.write('<style>');
-                    pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
-                    pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {m_font_size}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
-                    pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
-                    pWin.document.write('</style></head><body>');
-                    pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
-                    pWin.document.write('</body></html>');
-                    pWin.document.close();
-                    pWin.focus();
-                    setTimeout(function() {{
-                        pWin.print();
-                        pWin.close();
-                    }}, 350);
-                }}
-                </script>
-                """
-                components.html(print_m_html, height=45)
+                render_copy_and_print_buttons(
+                    st.session_state["saved_month_plan"],
+                    f"Kế Hoạch Giáo Dục: {m_info['theme']}",
+                    m_font_size,
+                    "tab_month"
+                )
 
             mi_c1, mi_c2 = st.columns(2)
             with mi_c1:
@@ -1992,23 +2051,21 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             )
 
             st.markdown("### 📄 Bản Xem Trước Kế Hoạch Tháng (Trang Giấy In):")
-            escaped_month_text = html.escape(st.session_state["saved_month_plan"])
+            formatted_month_html = format_text_to_standard_html(st.session_state["saved_month_plan"], m_font_size)
             st.markdown(
                 f"""
                 <div style="
                     background-color: #ffffff;
-                    color: #111111;
+                    color: #000000;
                     font-family: 'Times New Roman', Times, serif;
                     font-size: {m_font_size}pt;
-                    line-height: 1.6;
-                    padding: 30px 40px;
+                    line-height: 1.5;
+                    padding: 35px 45px;
                     border-radius: 12px;
                     border: 1.5px solid #B2E5D6;
                     box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
-                    white-space: pre-wrap;
                     text-align: justify;
-                    word-wrap: break-word;
-                ">{escaped_month_text}</div>
+                ">{formatted_month_html}</div>
                 """,
                 unsafe_allow_html=True
             )
@@ -2020,7 +2077,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                     st.rerun()
 
     with sub_tab_week:
-        st.subheader("📋 Thiết Kế Kế Hoạch Tuần ")
+        st.subheader("📋 Thiết Kế Kế Hoạch Tuần (Ma Trận 5 Ngày)")
         st.caption("Thiết lập thời khóa biểu và lịch trình hoạt động học, chơi ngoài trời, góc và buổi chiều từ Thứ Hai đến Thứ Sáu.")
 
         st.markdown("#### 📌 Thông Tin Tuần Học")
@@ -2149,12 +2206,12 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             w_font_size = st.session_state.get("w_font_size_slider", 14)
 
             st.markdown("### 🛠️ Tùy Chỉnh & Thao Tác Kế Hoạch Tuần")
-            wb_col1, wb_col2 = st.columns(2)
+            wb_col1, wb_col2 = st.columns([1, 2])
             with wb_col1:
                 w_docx = export_docx_from_text(st.session_state["saved_week_plan"], w_info, font_size_pt=w_font_size)
                 with open(w_docx, "rb") as f_w:
                     st.download_button(
-                        label="📥 Tải File Word (.docx) Kế Hoạch Tuần",
+                        label="📥 Tải File Word (.docx)",
                         data=f_w,
                         file_name=w_docx,
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -2163,48 +2220,12 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                         key="dl_week_btn"
                     )
             with wb_col2:
-                w_json_text = json.dumps(st.session_state["saved_week_plan"])
-                w_title_json = json.dumps(f"Kế Hoạch Tuần: {w_info['theme_week']}")
-                print_w_html = f"""
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
-                    <button onclick="printWeekPlan()" style="
-                        background: linear-gradient(135deg, #00B894, #00897B);
-                        color: white;
-                        border: none;
-                        padding: 10px 24px;
-                        border-radius: 12px;
-                        font-size: 15px;
-                        font-weight: bold;
-                        cursor: pointer;
-                        width: 100%;
-                        box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
-                    ">
-                        🖨️ In Kế Hoạch Tuần Ngay
-                    </button>
-                </div>
-                <script>
-                function printWeekPlan() {{
-                    var rawContent = {w_json_text};
-                    var docTitle = {w_title_json};
-                    var pWin = window.open('', '_blank');
-                    pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
-                    pWin.document.write('<style>');
-                    pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
-                    pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {w_font_size}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
-                    pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
-                    pWin.document.write('</style></head><body>');
-                    pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
-                    pWin.document.write('</body></html>');
-                    pWin.document.close();
-                    pWin.focus();
-                    setTimeout(function() {{
-                        pWin.print();
-                        pWin.close();
-                    }}, 350);
-                }}
-                </script>
-                """
-                components.html(print_w_html, height=45)
+                render_copy_and_print_buttons(
+                    st.session_state["saved_week_plan"],
+                    f"Kế Hoạch Tuần: {w_info['theme_week']}",
+                    w_font_size,
+                    "tab_week"
+                )
 
             wi_c1, wi_c2 = st.columns(2)
             with wi_c1:
@@ -2222,23 +2243,21 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             )
 
             st.markdown("### 📄 Bản Xem Trước Kế Hoạch Tuần (Trang Giấy In):")
-            escaped_week_text = html.escape(st.session_state["saved_week_plan"])
+            formatted_week_html = format_text_to_standard_html(st.session_state["saved_week_plan"], w_font_size)
             st.markdown(
                 f"""
                 <div style="
                     background-color: #ffffff;
-                    color: #111111;
+                    color: #000000;
                     font-family: 'Times New Roman', Times, serif;
                     font-size: {w_font_size}pt;
-                    line-height: 1.6;
-                    padding: 30px 40px;
+                    line-height: 1.5;
+                    padding: 35px 45px;
                     border-radius: 12px;
                     border: 1.5px solid #B2E5D6;
                     box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
-                    white-space: pre-wrap;
                     text-align: justify;
-                    word-wrap: break-word;
-                ">{escaped_week_text}</div>
+                ">{formatted_week_html}</div>
                 """,
                 unsafe_allow_html=True
             )
@@ -2304,7 +2323,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                 st.success("🎉 Mẫu tin nhắn Zalo:")
                 st.markdown(clean_res)
     else:
-        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé", "Bé minh đạt: ngoan, ăn giỏi, tích cực phát biểu")
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé", "Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             with st.spinner("⚡ Đang viết lời nhận xét siêu tốc..."):
                 zalo_dict = {"type": task_type, "info": child_info}
