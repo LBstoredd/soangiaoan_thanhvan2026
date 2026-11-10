@@ -114,21 +114,21 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM GỌI AI CHUẨN XÁC MODEL 2.5-FLASH ---
+# --- HÀM GỌI AI ƯU TIÊN MODEL 3.8 FLASH ---
 def call_gemini_safely(client, prompt):
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response
-    except Exception as e:
-        # Fallback tự động sang gemini-1.5-flash nếu cần
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt,
-        )
-        return response
+    models_to_try = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            return response
+        except Exception as e:
+            last_error = e
+            continue
+    raise Exception(f"Không thể kết nối AI. Lỗi gốc: {last_error}")
 
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
@@ -289,7 +289,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
 
 # --- TAB 1: SOẠN GIÁO ÁN CHUẨN ---
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
-    st.subheader("📝 Thiết Lập Hệ Thống Soạn Giáo Án")
+    st.subheader("📝 Thiết Lập Hệ Thống Soạn Giáo Án (Gemini 3.8 Flash)")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -427,14 +427,14 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
-                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
+                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non (Gemini 3.8 Flash)..."):
                     response = call_gemini_safely(client, prompt)
                     
                     st.session_state["generated_plan_text"] = response.text
                     st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
                         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-                        "route_type": route_type, "topic": topic, "method": "Chuẩn Bộ GD&ĐT", "age": age_group, "extras": extras,
+                        "route_type": route_type, "topic": topic, "method": "Gemini 3.8 Flash", "age": age_group, "extras": extras,
                         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
                         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment
                     }
@@ -555,7 +555,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                     row = get_plan_by_id(p_id)
                     if row:
                         title_db, content_db = row
-                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Chuẩn Bộ GD&ĐT", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
+                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Gemini 3.8 Flash", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
                         f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
