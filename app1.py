@@ -114,6 +114,22 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
+# --- HÀM GỌI AI THÔNG MINH (TỰ ĐỘNG CHUYỂN MODEL NẾU LỖI 503) ---
+def call_gemini_safely(client, prompt):
+    models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            return response
+        except Exception as e:
+            last_error = e
+            continue
+    raise Exception(f"Không thể kết nối AI sau khi thử tất cả các model. Lỗi gốc: {last_error}")
+
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
     if custom_template:
@@ -411,12 +427,9 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
-                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
-                    # Dùng model gemini-3.8-flash chuẩn theo yêu cầu API của Google
-                    response = client.models.generate_content(
-                        model='gemini-3.8-flash',
-                        contents=prompt,
-                    )
+                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non (Hệ thống tự động chọn luồng AI tối ưu)..."):
+                    # Gọi hàm thông minh tự động chuyển đổi model, không lo lỗi 503 hay 404
+                    response = call_gemini_safely(client, prompt)
                     
                     st.session_state["generated_plan_text"] = response.text
                     st.session_state["plan_info"] = {
@@ -464,9 +477,8 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
-            prompt = f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng."
             with st.spinner("Đang lập kế hoạch chủ đề..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                res = call_gemini_safely(client, f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng.")
                 st.success("Đã hoàn thành kế hoạch chủ đề cho cô:")
                 st.markdown(res.text, unsafe_allow_html=True)
 
@@ -481,9 +493,8 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
             st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
-            prompt = f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi."
             with st.spinner("Đang sáng tác nội dung..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                res = call_gemini_safely(client, f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi.")
                 st.success("Đã hoàn thành tác phẩm cho cô:")
                 st.markdown(res.text, unsafe_allow_html=True)
 
@@ -496,24 +507,22 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
         summary_topic = st.text_input("Nội dung hoạt động chính (VD: Hôm nay các con học bài thơ 'Cục len', tập tô chữ o...)")
         if st.button("💌 Soạn Tin Nhắn Zalo", type="primary"):
             if not api_key:
-                st.error("⚠️ Vui lòng nhập và lưu API Key!")
+                st.error("⚠️ Vui lòng nhập API Key!")
             else:
                 client = genai.Client(api_key=api_key)
-                prompt = f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối."
                 with st.spinner("Đang soạn tin..."):
-                    res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                    res = call_gemini_safely(client, f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối.")
                     st.success("Mẫu tin nhắn Zalo:")
                     st.markdown(res.text, unsafe_allow_html=True)
     else:
         child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             if not api_key:
-                st.error("⚠️ Vui lòng nhập và lưu API Key!")
+                st.error("⚠️ Vui lòng nhập API Key!")
             else:
                 client = genai.Client(api_key=api_key)
-                prompt = f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
                 with st.spinner("Đang viết lời nhận xét..."):
-                    res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                    res = call_gemini_safely(client, f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}.")
                     st.success("Lời nhận xét mẫu cho cô:")
                     st.markdown(res.text, unsafe_allow_html=True)
 
@@ -527,9 +536,8 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
             st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
-            prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
             with st.spinner("Đang lên ý tưởng chế tạo..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                res = call_gemini_safely(client, f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ.")
                 st.success("Ý tưởng đồ dùng tự tạo:")
                 st.markdown(res.text, unsafe_allow_html=True)
 
