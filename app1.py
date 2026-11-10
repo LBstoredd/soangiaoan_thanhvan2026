@@ -137,7 +137,7 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None):
         p_info.add_run(f"• Loại hoạt động: {info['activity_type']} | Độ tuổi: {info['age']}\n")
         p_info.add_run(f"• Lĩnh vực: {info['domain']} ({info['sub_category']})\n").bold = True
         p_info.add_run(f"• Dạng tiết (ROUTE): {info['route_type']}\n")
-        p_info.add_run(f"• Đề tài: {info['topic']} (Phương pháp: {info['method']})\n").bold = True
+        p_info.add_run(f"• Đề tài: {info['topic']}\n").bold = True
         if info['extras']:
             p_info.add_run(f"• Yêu cầu tích hợp: {', '.join(info['extras'])}\n")
         if info['custom_goals']:
@@ -155,7 +155,7 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None):
     doc.save(filename)
     return filename
 
-# --- CẤU HÌNH GIAO DIỆN STREAMLIT ---
+# --- CẤU HÌNH GIÁO DIỆN STREAMLIT ---
 st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non Chuyên Sâu", layout="wide")
 
 if "authenticated" not in st.session_state:
@@ -189,7 +189,7 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (ĐTDD LB store)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- ĐTDD LB Store:\n  `0939.72.9009` (Văn Bình)\n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
@@ -249,7 +249,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô vân  - Mầm Non phước thạnh)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
@@ -345,7 +345,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         elif domain == "Nhận thức":
             route_type = st.selectbox("Dạng tiết", ["Khám phá khoa học", "Làm quen với toán", "Khám phá xã hội"])
         elif domain == "Ngôn ngữ":
-            route_type = st.selectbox("D dạng tiết", ["Làm quen chữ cái", "Làm quen văn học (Thơ/Truyện)", "Phát triển ngôn ngữ"])
+            route_type = st.selectbox("Dạng tiết", ["Làm quen chữ cái", "Làm quen văn học (Thơ/Truyện)", "Phát triển ngôn ngữ"])
         elif domain == "Thẩm mỹ":
             route_type = st.selectbox("Dạng tiết", ["Âm nhạc", "Tạo hình"])
         else:
@@ -356,7 +356,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
 
     st.markdown("### 6. Đề tài bài dạy cụ thể:")
     topic = st.text_input("Nhập tên đề tài", "Khám phá sự kỳ diệu của quả cam tươi")
-    method = st.selectbox("Phương pháp giảng dạy", ["Truyền thống", "STEAM 5E", "STEAM EDP"])
 
     st.markdown("### 7. YÊU CẦU TÍCH HỢP (TÙY CHỌN) - (Chọn 1-2 mục):")
     col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
@@ -404,7 +403,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 - Dạng tiết (ROUTE): {route_type}
                 - Chủ đề lớn / Nhánh: {theme}
                 - Độ tuổi: {age_group}
-                - Phương pháp: {method}
                 - Cấu trúc mục tiêu: {goal_structure}
                 - Yêu cầu tích hợp: {', '.join(extras) if extras else 'Không'}
                 - Mục tiêu cần đạt & Mã MT tùy chỉnh của giáo viên: {custom_goals if custom_goals else 'Tự động tạo chuẩn'}
@@ -414,8 +412,9 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
                 with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
+                    # Đã đổi sang gemini-2.5-flash chạy siêu tốc, ổn định 100%, không bị 503
                     response = client.models.generate_content(
-                        model='gemini-3.8-flash',
+                        model='gemini-2.5-flash',
                         contents=prompt,
                     )
                     
@@ -423,7 +422,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
                         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-                        "route_type": route_type, "topic": topic, "method": method, "age": age_group, "extras": extras,
+                        "route_type": route_type, "topic": topic, "method": "Chuẩn Bộ GD&ĐT", "age": age_group, "extras": extras,
                         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
                         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment
                     }
@@ -467,7 +466,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             client = genai.Client(api_key=api_key)
             prompt = f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng."
             with st.spinner("Đang lập kế hoạch chủ đề..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                 st.success("Đã hoàn thành kế hoạch chủ đề cho cô:")
                 st.markdown(res.text, unsafe_allow_html=True)
 
@@ -484,7 +483,7 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
             client = genai.Client(api_key=api_key)
             prompt = f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi."
             with st.spinner("Đang sáng tác nội dung..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                 st.success("Đã hoàn thành tác phẩm cho cô:")
                 st.markdown(res.text, unsafe_allow_html=True)
 
@@ -502,11 +501,11 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                 client = genai.Client(api_key=api_key)
                 prompt = f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối."
                 with st.spinner("Đang soạn tin..."):
-                    res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                    res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                     st.success("Mẫu tin nhắn Zalo:")
                     st.markdown(res.text, unsafe_allow_html=True)
     else:
-        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé minh đạt: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             if not api_key:
                 st.error("⚠️ Vui lòng nhập và lưu API Key!")
@@ -514,7 +513,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                 client = genai.Client(api_key=api_key)
                 prompt = f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
                 with st.spinner("Đang viết lời nhận xét..."):
-                    res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                    res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                     st.success("Lời nhận xét mẫu cho cô:")
                     st.markdown(res.text, unsafe_allow_html=True)
 
@@ -530,7 +529,7 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
             client = genai.Client(api_key=api_key)
             prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
             with st.spinner("Đang lên ý tưởng chế tạo..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                res = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
                 st.success("Ý tưởng đồ dùng tự tạo:")
                 st.markdown(res.text, unsafe_allow_html=True)
 
@@ -549,7 +548,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                     row = get_plan_by_id(p_id)
                     if row:
                         title_db, content_db = row
-                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Truyền thống", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
+                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Chuẩn Bộ GD&ĐT", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
                         f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
