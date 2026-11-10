@@ -72,11 +72,8 @@ def check_license(key):
     return False, "❌ Mã kích hoạt không hợp lệ hoặc không tồn tại!"
 
 def create_new_license(customer_name, months):
-    # Tự động sinh mã ngẫu nhiên dạng LB-XXXX-YYYY
     random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     new_key = f"LB-{random_str}"
-    
-    # Tính ngày hết hạn (30 ngày * số tháng)
     expires_date = (datetime.now() + timedelta(days=30 * months)).strftime("%Y-%m-%d")
     
     conn = sqlite3.connect('mamnon_rag.db')
@@ -171,7 +168,7 @@ def export_docx(plan: LessonPlan, info: dict, custom_template=None):
     return filename
 
 # --- CẤU HÌNH GIAO DIỆN STREAMLIT ---
-st.set_page_config(page_title="Phần Mềm Soạn Giáo Án Mầm Non Tự Động", layout="wide")
+st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non", layout="wide")
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -181,7 +178,7 @@ if "is_admin" not in st.session_state:
 # --- MÀN HÌNH ĐĂNG NHẬP MÃ BẢN QUYỀN ---
 if not st.session_state["authenticated"]:
     st.title("🔐 Xác Thực Sử Dụng Phần Mềm Mầm Non")
-    st.markdown("Vui lòng nhập **Mã Kích Hoạt Bản Quyền (100k/tháng)** để truy cập hệ thống.")
+    st.markdown("Vui lòng nhập **Mã Kích Hoạt Bản Quyền (100k/tháng)** để truy cập hệ thống trợ lý.")
     
     col_l1, col_l2 = st.columns([2, 1])
     with col_l1:
@@ -202,12 +199,12 @@ if not st.session_state["authenticated"]:
                 else:
                     st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo/Hotline Admin:\n  `0939729009` (LB store)\n- Chuyển khoản nhận mã ngay!")
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo/Hotline Admin:\n  `0939.72.9009` (LB Store ĐTDD)\n- Chuyển khoản nhận mã ngay!")
     st.stop()
 
-# --- GIAO DIỆN CHÍNH SAU KHI ĐÃ MỞ KHÓA ---
-st.title("🧸 Phần Mềm Soạn Giáo Án Mầm Non Tự Động (Thanh Vân 2026)")
-st.markdown("Hỗ trợ soạn giáo án đa phương pháp, sáng tác thơ/đồng dao, gợi ý đồ chơi DIY và tóm tắt tin nhắn phụ huynh.")
+# --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
+st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
+st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, lên kế hoạch tháng, sáng tác trò chơi, viết sổ liên lạc và quản lý lớp học tự động.")
 
 # Thanh sidebar cấu hình
 with st.sidebar:
@@ -221,13 +218,27 @@ with st.sidebar:
         st.rerun()
         
     st.divider()
-    st.info("💡 **Tính năng phần mềm:**")
+    st.markdown("### 📌 Danh Mục Tính Năng")
     
-    # Danh sách menu tùy thuộc vào tài khoản thường hay Admin
     if st.session_state["is_admin"]:
-        app_mode = st.radio("Chọn chức năng:", ["👑 Quản Lý Khách Thuê (Admin)", "📝 Soạn Giáo Án Chuẩn", "📚 Kho Lịch Sử Giáo Án", "🎨 Sáng Tác Thơ & Đồng Dao", "✂️ Gợi Ý Đồ Dùng DIY", "💬 Tóm Tắt Tin Nhắn Zalo Phụ Huynh"])
+        app_mode = st.radio("Chọn tác vụ:", [
+            "👑 Quản Lý Khách Thuê (Admin)", 
+            "📝 Soạn Giáo Án Chuẩn", 
+            "🗓️ Kế Hoạch & Sổ Chủ Đề", 
+            "🎯 Trò Chơi & Đố Vui", 
+            "💌 Sổ Liên Lạc & Zalo", 
+            "✂️ Gợi Ý Đồ Dùng DIY", 
+            "📚 Kho Lịch Sử Giáo Án"
+        ])
     else:
-        app_mode = st.radio("Chọn chức năng:", ["📝 Soạn Giáo Án Chuẩn", "📚 Kho Lịch Sử Giáo Án", "🎨 Sáng Tác Thơ & Đồng Dao", "✂️ Gợi Ý Đồ Dùng DIY", "💬 Tóm Tắt Tin Nhắn Zalo Phụ Huynh"])
+        app_mode = st.radio("Chọn tác vụ:", [
+            "📝 Soạn Giáo Án Chuẩn", 
+            "🗓️ Kế Hoạch & Sổ Chủ Đề", 
+            "🎯 Trò Chơi & Đố Vui", 
+            "💌 Sổ Liên Lạc & Zalo", 
+            "✂️ Gợi Ý Đồ Dùng DIY", 
+            "📚 Kho Lịch Sử Giáo Án"
+        ])
 
 # --- TAB ADMIN: QUẢN LÝ KHÁCH THUÊ ---
 if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (Admin)":
@@ -259,6 +270,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
 
 # --- TAB 1: SOẠN GIÁO ÁN CHUẨN ---
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
+    st.subheader("📝 Soạn Giáo Án Chi Tiết Tự Động")
     col1, col2 = st.columns(2)
     with col1:
         teacher_name = st.text_input("Họ và tên giáo viên", "Nguyễn Thị Thanh Vân")
@@ -269,7 +281,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         domain = st.selectbox("Lĩnh vực phát triển", ["Thể chất", "Nhận thức", "Ngôn ngữ", "Thẩm mỹ", "Tình cảm - KNXH"])
         theme = st.text_input("Chủ đề lớn", "Trường mầm non")
         method = st.selectbox("Phương pháp giảng dạy chuyên sâu", ["Truyền thống", "STEAM 5E", "STEAM EDP"])
-        topic = st.text_input("Tên đề tài bài dạy", "Học chữ cái")
+        topic = st.text_input("Tên đề tài bài dạy", "Học chữ cái o, ô, ơ")
 
     uploaded_template = st.file_uploader("Tải lên mẫu file Word (.docx) của trường (Tùy chọn)", type=["docx"])
 
@@ -339,7 +351,87 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             except Exception as e:
                 st.error(f"Đã xảy ra lỗi khi gọi AI: {e}")
 
-# --- TAB 2: KHO LỊCH SỬ GIÁO ÁN ---
+# --- TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ ---
+elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
+    st.subheader("🗓️ Lập Kế Hoạch Giáo Dục Theo Chủ Đề & Tháng")
+    theme_input = st.text_input("Nhập tên Chủ Đề Lớn (VD: Thế giới thực vật, Giao thông, Tết và mùa xuân...)")
+    age_plan = st.selectbox("Độ tuổi lớp", ["3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], key="age_p")
+    
+    if st.button("🚀 Tạo Kế Hoạch Trọn Gói", type="primary"):
+        if not api_key:
+            st.error("Vui lòng nhập API Key ở menu bên trái!")
+        else:
+            client = genai.Client(api_key=api_key)
+            prompt = f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng."
+            with st.spinner("Đang lập kế hoạch chủ đề..."):
+                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                st.success("Đã hoàn thành kế hoạch chủ đề cho cô:")
+                st.markdown(res.text)
+
+# --- TAB 3: TRÒ CHƠI & ĐỐ VUI ---
+elif app_mode == "🎯 Trò Chơi & Đố Vui":
+    st.subheader("🎯 Sáng Tác Trò Chơi, Câu Đố & Bài Thơ Mầm Non")
+    topic_game = st.text_input("Nhập chủ đề hoặc sự vật (VD: Củ cà rốt, An toàn giao thông, Đếm đến 5...)")
+    genre = st.selectbox("Thể loại cần tạo", ["Bài thơ ngắn dễ thuộc", "Bài đồng dao vui nhộn", "Câu đố vui cho trẻ", "Trò chơi vận động tập thể"])
+    
+    if st.button("✨ Sáng Tác Ngay", type="primary"):
+        if not api_key:
+            st.error("Vui lòng nhập API Key ở menu bên trái!")
+        else:
+            client = genai.Client(api_key=api_key)
+            prompt = f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi."
+            with st.spinner("Đang sáng tác nội dung..."):
+                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                st.success("Đã hoàn thành tác phẩm cho cô:")
+                st.markdown(res.text)
+
+# --- TAB 4: SỔ LIÊN LẠC & ZALO ---
+elif app_mode == "💬 Sổ Liên Lạc & Zalo":
+    st.subheader("💬 Trợ Lý Viết Sổ Liên Lạc & Tin Nhắn Zalo Phụ Huynh")
+    task_type = st.radio("Chọn loại nội dung cần viết:", ["Tin nhắn tổng kết ngày/tuần gửi nhóm Zalo", "Viết lời nhận xét sự tiến bộ cho từng bé"])
+    
+    if task_type == "Tin nhắn tổng kết ngày/tuần gửi nhóm Zalo":
+        summary_topic = st.text_input("Nội dung hoạt động chính (VD: Hôm nay các con học bài thơ 'Cục len', tập tô chữ o...)")
+        if st.button("💌 Soạn Tin Nhắn Zalo", type="primary"):
+            if not api_key:
+                st.error("Vui lòng nhập API Key!")
+            else:
+                client = genai.Client(api_key=api_key)
+                prompt = f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối."
+                with st.spinner("Đang soạn tin..."):
+                    res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                    st.success("Mẫu tin nhắn Zalo:")
+                    st.markdown(res.text)
+    else:
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Pepsi : ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
+        if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
+            if not api_key:
+                st.error("Vui lòng nhập API Key!")
+            else:
+                client = genai.Client(api_key=api_key)
+                prompt = f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
+                with st.spinner("Đang viết lời nhận xét..."):
+                    res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                    st.success("Lời nhận xét mẫu cho cô:")
+                    st.markdown(res.text)
+
+# --- TAB 5: GỢI Ý ĐỒ DÙNG DIY ---
+elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
+    st.subheader("✂️ Gợi Ý Làm Đồ Dùng Dạy Học Từ Vật Liệu Mở")
+    lesson_name = st.text_input("Nhập tên bài học hoặc kỹ năng cần làm đồ dùng (VD: Đếm số lượng trong phạm vi 5...)")
+    
+    if st.button("🛠️ Gợi Ý Cách Làm", type="primary"):
+        if not api_key:
+            st.error("Vui lòng nhập API Key ở menu bên trái!")
+        else:
+            client = genai.Client(api_key=api_key)
+            prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
+            with st.spinner("Đang lên ý tưởng chế tạo..."):
+                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+                st.success("Ý tưởng đồ dùng tự tạo:")
+                st.markdown(res.text)
+
+# --- TAB 6: KHO LỊCH SỬ GIÁO ÁN ---
 elif app_mode == "📚 Kho Lịch Sử Giáo Án":
     st.subheader("📚 Kho Lưu Trữ Giáo Án Đã Soạn")
     plans = get_all_saved_plans()
@@ -359,52 +451,3 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                         f_path = export_docx(plan_obj, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
-
-# --- TAB 3: SÁNG TÁC THƠ & ĐỒNG DAO ---
-elif app_mode == "🎨 Sáng Tác Thơ & Đồng Dao":
-    st.subheader("🎨 Sáng Tác Thơ, Câu Đố & Đồng Dao Mầm Non")
-    topic_poetry = st.text_input("Nhập chủ đề hoặc tên sự vật (VD: Củ cà rốt, Chú gà con...)")
-    genre = st.selectbox("Thể loại cần sáng tác", ["Bài thơ ngắn (4-8 câu)", "Bài đồng dao vui nhộn", "Câu đố vui cho trẻ"])
-    
-    if st.button("✨ Sáng Tác Ngay", type="primary"):
-        if not api_key:
-            st.error("Vui lòng nhập API Key ở menu bên trái!")
-        else:
-            client = genai.Client(api_key=api_key)
-            prompt = f"Hãy sáng tác một {genre} dành riêng cho trẻ em lứa tuổi mầm non với chủ đề: {topic_poetry}. Ngôn ngữ trong trẻo, dễ thuộc, vui nhộn."
-            with st.spinner("Đang sáng tác..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
-                st.success("Đã hoàn thành tác phẩm cho cô:")
-                st.markdown(res.text)
-
-# --- TAB 4: GỢI Ý ĐỒ DÙNG DIY ---
-elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
-    st.subheader("✂️ Gợi Ý Làm Đồ Dùng Dạy Học Từ Vật Liệu Mở")
-    lesson_name = st.text_input("Nhập tên bài học hoặc kỹ năng cần làm đồ dùng (VD: Đếm số lượng trong phạm vi 5...)")
-    
-    if st.button("🛠️ Gợi Ý Cách Làm", type="primary"):
-        if not api_key:
-            st.error("Vui lòng nhập API Key ở menu bên trái!")
-        else:
-            client = genai.Client(api_key=api_key)
-            prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
-            with st.spinner("Đang lên ý tưởng chế tạo..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
-                st.success("Ý tưởng đồ dùng tự tạo:")
-                st.markdown(res.text)
-
-# --- TAB 5: TÓM TẮT TIN NHẮN ZALO PHỤ HUYNH ---
-elif app_mode == "💬 Tóm Tắt Tin Nhắn Zalo Phụ Hyuynh":
-    st.subheader("💬 Tạo Tin Nhắn Tóm Tắt Gửi Nhóm Zalo Phụ Huynh")
-    summary_topic = st.text_input("Nội dung chính trong ngày/tuần (VD: Hôm nay các con học bài thơ 'Cục len'...)")
-    
-    if st.button("💌 Soạn Tin Nhắn Gửi Phụ Huynh", type="primary"):
-        if not api_key:
-            st.error("Vui lòng nhập API Key ở menu bên trái!")
-        else:
-            client = genai.Client(api_key=api_key)
-            prompt = f"Soạn một đoạn tin nhắn Zalo thân thiện, lịch sự, chuyên nghiệp từ giáo viên mầm non gửi cho phụ huynh học sinh để tóm tắt các hoạt động: {summary_topic}. Có kèm lời dặn dò nhẹ nhàng và chúc phụ huynh buổi tối vui vẻ."
-            with st.spinner("Đang soạn tin nhắn..."):
-                res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
-                st.success("Mẫu tin nhắn Zalo:")
-                st.markdown(res.text)
