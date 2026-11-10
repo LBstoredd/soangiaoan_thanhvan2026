@@ -94,8 +94,8 @@ def get_all_licenses():
 def save_plan_to_db(title, content_json):
     conn = sqlite3.connect('mamnon_rag.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT id, title, created_at FROM saved_plans ORDER BY id DESC")
-    rows = cursor.fetchall()
+    cursor.execute("INSERT INTO saved_plans (title, content) VALUES (?, ?)", (title, content_json))
+    conn.commit()
     conn.close()
 
 def get_all_saved_plans():
@@ -114,7 +114,7 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM GỌI AI CHUẨN XÁC MODEL 2.5-FLASH ---
+# --- HÀM GỌI AI CHUẨN XÁC MODEL GEMINI 2.5 FLASH ---
 def call_gemini_safely(client, prompt):
     try:
         response = client.models.generate_content(
@@ -123,11 +123,7 @@ def call_gemini_safely(client, prompt):
         )
         return response
     except Exception as e:
-        response = client.models.generate_content(
-            model='gemini-flash',
-            contents=prompt,
-        )
-        return response
+        raise Exception(f"Lỗi kết nối AI: {e}")
 
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
@@ -433,7 +429,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
                         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-                        "route_type": route_type, "topic": topic, "method": "Chuẩn Bộ GD&ĐT", "age": age_group, "extras": extras,
+                        "route_type": route_type, "topic": topic, "method": "Gemini 2.5 Flash", "age": age_group, "extras": extras,
                         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
                         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment
                     }
@@ -554,7 +550,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                     row = get_plan_by_id(p_id)
                     if row:
                         title_db, content_db = row
-                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Chuẩn Bộ GD&ĐT", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
+                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Gemini 2.5 Flash", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
                         f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
