@@ -155,6 +155,8 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "is_admin" not in st.session_state:
     st.session_state["is_admin"] = False
+if "api_key_saved" not in st.session_state:
+    st.session_state["api_key_saved"] = ""
 
 # --- MÀN HÌNH ĐĂNG NHẬP MÃ BẢN QUYỀN ---
 if not st.session_state["authenticated"]:
@@ -189,7 +191,19 @@ st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, lên kế hoạch
 
 with st.sidebar:
     st.header("⚙️ Cấu hình hệ thống")
-    api_key = st.text_input("Nhập Google Gemini API Key", type="password")
+    input_api_key = st.text_input("Nhập Google Gemini API Key", type="password", value=st.session_state["api_key_saved"])
+    
+    if st.button("💾 Xác Nhận Lưu API Key"):
+        if input_api_key.strip():
+            st.session_state["api_key_saved"] = input_api_key.strip()
+            st.success("✅ Đã lưu API Key thành công!")
+        else:
+            st.error("⚠️ Vui lòng nhập API Key hợp lệ!")
+
+    if st.session_state["api_key_saved"]:
+        st.success("🟢 Trạng thái: Đã kết nối AI sẵn sàng!")
+    else:
+        st.warning("🔴 Trạng thái: Chưa nhập API Key!")
     
     st.divider()
     if st.button("🔒 Đăng Xuất / Khóa Lại"):
@@ -220,6 +234,8 @@ with st.sidebar:
             "📚 Kho Lịch Sử Giáo Án"
         ])
 
+api_key = st.session_state["api_key_saved"]
+
 # --- TAB ADMIN: QUẢN LÝ KHÁCH THUÊ ---
 if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (Admin)":
     st.subheader("👑 Khu Vực Quản Trị Viên - Cấp Mã Thuê Bao")
@@ -248,7 +264,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         status_text = "🟢 Đang hoạt động" if l_active == 1 else "🔴 Đã khóa"
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
-# --- TAB 1: SOẠN GIÁO ÁN CHUẨN (CÓ GIAO DIỆN GIỐNG VIDEO) ---
+# --- TAB 1: SOẠN GIÁO ÁN CHUẨN ---
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Hệ Thống Soạn Giáo Án")
     
@@ -322,7 +338,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
 
     if st.button("🚀 Tạo Bản Án Chuẩn Chương Trình Hiện Hành", type="primary"):
         if not api_key:
-            st.error("Vui lòng nhập Google Gemini API Key ở thanh bên trái!")
+            st.error("⚠️ Vui lòng nhập và bấm nút 'Xác Nhận Lưu API Key' ở menu bên trái trước khi soạn giáo án!")
         else:
             try:
                 client = genai.Client(api_key=api_key)
@@ -387,7 +403,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     
     if st.button("🚀 Tạo Kế Hoạch Trọn Gói", type="primary"):
         if not api_key:
-            st.error("Vui lòng nhập API Key ở menu bên trái!")
+            st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
             prompt = f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng."
@@ -404,7 +420,7 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
     
     if st.button("✨ Sáng Tác Ngay", type="primary"):
         if not api_key:
-            st.error("Vui lòng nhập API Key ở menu bên trái!")
+            st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
             prompt = f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi."
@@ -422,7 +438,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
         summary_topic = st.text_input("Nội dung hoạt động chính (VD: Hôm nay các con học bài thơ 'Cục len', tập tô chữ o...)")
         if st.button("💌 Soạn Tin Nhắn Zalo", type="primary"):
             if not api_key:
-                st.error("Vui lòng nhập API Key!")
+                st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
             else:
                 client = genai.Client(api_key=api_key)
                 prompt = f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối."
@@ -434,7 +450,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
         child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             if not api_key:
-                st.error("Vui lòng nhập API Key!")
+                st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
             else:
                 client = genai.Client(api_key=api_key)
                 prompt = f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}."
@@ -450,7 +466,7 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
     
     if st.button("🛠️ Gợi Ý Cách Làm", type="primary"):
         if not api_key:
-            st.error("Vui lòng nhập API Key ở menu bên trái!")
+            st.error("⚠️ Vui lòng nhập và lưu API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
             prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
