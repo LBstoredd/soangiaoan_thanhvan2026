@@ -1399,7 +1399,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 st.rerun()
 
 # =========================================================================
-# TAB MỚI: SOẠN GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ (CHUẨN THEO VIDEO)
+# TAB MỚI: SOẠN GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ
 # =========================================================================
 elif app_mode == "💻 Tích Hợp Năng Lực Số":
     head_c1, head_c2 = st.columns([3, 1])
@@ -1427,9 +1427,9 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         st.markdown("#### 👤 I. THÔNG TIN GIÁO VIÊN & LỚP HỌC")
         dg_c1, dg_c2, dg_c3, dg_c4 = st.columns([2, 2, 1.2, 1.3])
         with dg_c1:
-            dg_teacher = st.text_input("Tên giáo viên", value=st.session_state.get("dg_teacher", "Nguyễn Thị Thanh Vân"), placeholder="Ví dụ: Nguyễn Thị Mai", key="in_dg_teacher")
+            dg_teacher = st.text_input("Tên giáo viên", value=st.session_state.get("dg_teacher", "Nguyễn Thị Thanh Vân"), placeholder="Ví dụ: Nguyễn Thanh Loan", key="in_dg_teacher")
         with dg_c2:
-            dg_school = st.text_input("Tên trường mầm non", value=st.session_state.get("dg_school", "Trường Mầm Non Phước Thạnh"), placeholder="Ví dụ: Mầm non Sao Mai", key="in_dg_school")
+            dg_school = st.text_input("Tên trường mầm non", value=st.session_state.get("dg_school", "Trường Mầm Non Phước Thạnh"), placeholder="Ví dụ: Mầm non phước thạnh", key="in_dg_school")
         with dg_c3:
             dg_class = st.text_input("Lớp", value=st.session_state.get("dg_class", "Chồi 1"), placeholder="Ví dụ: Chồi 2", key="in_dg_class")
         with dg_c4:
@@ -1799,7 +1799,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
 # TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 THÁNG)
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
-    sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng (Theo Video 1)", "📋 Kế Hoạch Tuần (Theo Video 2)"])
+    sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng ", "📋 Kế Hoạch Tuần "])
 
     with sub_tab_month:
         st.subheader("📖 Thiết Kế Kế Hoạch Tháng")
@@ -2020,7 +2020,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                     st.rerun()
 
     with sub_tab_week:
-        st.subheader("📋 Thiết Kế Kế Hoạch Tuần (Ma Trận 5 Ngày)")
+        st.subheader("📋 Thiết Kế Kế Hoạch Tuần ")
         st.caption("Thiết lập thời khóa biểu và lịch trình hoạt động học, chơi ngoài trời, góc và buổi chiều từ Thứ Hai đến Thứ Sáu.")
 
         st.markdown("#### 📌 Thông Tin Tuần Học")
@@ -2304,7 +2304,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
                 st.success("🎉 Mẫu tin nhắn Zalo:")
                 st.markdown(clean_res)
     else:
-        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé", "Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu")
+        child_info = st.text_input("Nhập vài từ khóa về tình hình của bé", "Bé minh đạt: ngoan, ăn giỏi, tích cực phát biểu")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
             with st.spinner("⚡ Đang viết lời nhận xét siêu tốc..."):
                 zalo_dict = {"type": task_type, "info": child_info}
