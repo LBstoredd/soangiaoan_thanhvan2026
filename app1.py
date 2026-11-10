@@ -16,6 +16,116 @@ from datetime import datetime, timedelta
 import random
 import string
 
+# --- CẤU HÌNH GIAO DIỆN STREAMLIT & THEME XANH MINT HIỆN ĐẠI ---
+st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non Chuyên Sâu", layout="wide")
+
+st.markdown("""
+<style>
+    /* 1. Nền tổng thể Xanh Mint Trắng dịu mắt & Phông chữ hiện đại */
+    .stApp {
+        background: linear-gradient(180deg, #F4FBF9 0%, #FFFFFF 100%);
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: #1E293B;
+    }
+
+    /* 2. Thanh menu bên trái (Sidebar) tông Xanh Mint Pastel */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #E6F7F2 0%, #D4F1E8 100%) !important;
+        border-right: 1.5px solid #B2E5D6;
+    }
+    [data-testid="stSidebar"] * {
+        color: #0F5247 !important;
+    }
+
+    /* 3. Tiêu đề ứng dụng sắc nét */
+    h1 {
+        color: #00796B !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.3px;
+        text-shadow: 0 2px 4px rgba(0, 121, 107, 0.08);
+    }
+    h2, h3, h4, h5 {
+        color: #00695C !important;
+        font-weight: 700 !important;
+    }
+
+    /* 4. Nút bấm chính (Primary Buttons) & Nút Tải File Word */
+    div.stButton > button[kind="primary"],
+    div.stDownloadButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #00B894 0%, #00897B 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 10px 24px !important;
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28) !important;
+        transition: all 0.25s ease !important;
+    }
+    div.stButton > button[kind="primary"]:hover,
+    div.stDownloadButton > button[kind="primary"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 184, 148, 0.42) !important;
+        background: linear-gradient(135deg, #00CBA4 0%, #00796B 100%) !important;
+    }
+
+    /* 5. Nút bấm phụ (Secondary Buttons) */
+    div.stButton > button[kind="secondary"] {
+        background-color: #FFFFFF !important;
+        color: #00796B !important;
+        border: 1.5px solid #80CBC4 !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        padding: 8px 18px !important;
+        transition: all 0.2s ease !important;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #E0F2F1 !important;
+        border-color: #00897B !important;
+        transform: translateY(-1px);
+    }
+
+    /* 6. Khung nhập liệu (Input, Textarea, Selectbox, NumberInput) */
+    .stTextInput > div > div > input, 
+    .stTextArea > div > div > textarea,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div {
+        border-radius: 10px !important;
+        border: 1.5px solid #B2DFDB !important;
+        background-color: #FFFFFF !important;
+        color: #1E293B !important;
+        transition: all 0.25s ease;
+    }
+    .stTextInput > div > div > input:focus, 
+    .stTextArea > div > div > textarea:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #00B894 !important;
+        box-shadow: 0 0 0 3px rgba(0, 184, 148, 0.18) !important;
+    }
+
+    /* 7. Thẻ chứa thông tin, Khung mở rộng & Tabs */
+    [data-testid="stExpander"], div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        border-radius: 14px !important;
+        border: 1px solid #B2E5D6 !important;
+        background-color: #FFFFFF !important;
+        box-shadow: 0 4px 14px rgba(0, 121, 107, 0.04) !important;
+    }
+    button[data-baseweb="tab"] {
+        font-weight: 700 !important;
+        font-size: 15px !important;
+        color: #00796B !important;
+    }
+
+    /* 8. Thanh trượt Slider & Hộp thông báo */
+    .stSlider > div > div > div > div {
+        background-color: #00B894 !important;
+    }
+    div[data-testid="stAlert"] {
+        border-radius: 12px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- BỘ LỌC LÀM SẠCH TỰ ĐỘNG (GỠ SẠCH DẤU *, **, ###, ---) ---
 def clean_markdown_text(raw_text: str) -> str:
     if not raw_text:
@@ -369,6 +479,110 @@ IV. ĐÁNH GIÁ CUỐI NGÀY
 - Trạng thái cảm xúc, thái độ: Trẻ hào hứng, tích cực, biết phối hợp cùng cô và bạn trong suốt tiết học '{topic}'.
 - Kiến thức, kỹ năng: Trẻ nắm vững mục tiêu bài học ({topic}), thực hiện tốt các yêu cầu sư phạm lứa tuổi {age}; cô kịp thời hỗ trợ các trẻ còn rụt rè để toàn lớp đạt kết quả tốt."""
     return clean_markdown_text(raw_plan)
+
+# --- BỘ CỨU CÁNH GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ (TAB MỚI THEO VIDEO) ---
+def generate_instant_digital_plan(info: dict) -> str:
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    school = info.get("school", "Trường Mầm Non Sao Mai")
+    teacher = info.get("teacher", "Nguyễn Thị Mai")
+    class_name = info.get("class_name", "Lớp Chồi 2")
+    age = info.get("age", "5-6 tuổi")
+    theme = info.get("theme", "Thế giới thực vật")
+    topic = info.get("topic", "Khám phá sự kỳ diệu của quả cam")
+    domain = info.get("domain", "Phát triển nhận thức")
+    act_type = info.get("activity_type", "Ứng dụng công nghệ/AI")
+    duration = info.get("duration", "30 - 35 phút")
+    num_kids = info.get("num_children", 25)
+    goals = info.get("goals", "").strip()
+    teacher_tools = info.get("teacher_tools", "Bộ học liệu tĩnh, thẻ hình ảnh, mô hình sản phẩm")
+    child_tools = info.get("child_tools", "Quả cam thật, cốc nước, khăn lau tay, thẻ số")
+    digital_equip = info.get("digital_equip", "Máy tính kết nối tivi thông minh, loa bluetooth")
+    digital_tools = info.get("digital_tools", ["Bảng tương tác", "Canva", "Video", "Trò chơi số", "AI tạo hình ảnh"])
+    space = info.get("space", "Trong lớp học")
+    space_req = info.get("space_req", "Không gian thoáng, đủ ánh sáng, màn hình ngang tầm mắt trẻ")
+    org_form = info.get("org_form", "Cả lớp")
+    approach = info.get("approach", "Tích hợp năng lực số")
+    proactivity = info.get("proactivity", "Trẻ chủ động")
+    methods = info.get("methods", ["Quan sát", "Đàm thoại", "Trò chơi", "Thực hành", "Sử dụng công nghệ số"])
+    intro_opts = info.get("intro_opts", ["Tình huống bất ngờ", "Video/Hình ảnh AI"])
+    outro_opts = info.get("outro_opts", ["Đánh giá nhẹ nhàng", "Trò chơi củng cố"])
+    extra_notes = info.get("extra_notes", "").strip()
+
+    digital_str = ", ".join(digital_tools) if digital_tools else "Bảng tương tác, Video AI, Trò chơi số"
+    methods_str = ", ".join(methods) if methods else "Quan sát, Đàm thoại, Trò chơi, Sử dụng công nghệ số"
+    intro_str = ", ".join(intro_opts) if intro_opts else "Video/Hình ảnh AI và tình huống tương tác"
+    outro_str = ", ".join(outro_opts) if outro_opts else "Trò chơi tương tác củng cố và đánh giá nhẹ nhàng"
+
+    if not goals:
+        goals_block = (
+            f"1. Kiến thức:\n"
+            f"- Trẻ nhận biết và gọi đúng tên, đặc điểm nổi bật của '{topic}' thông qua trải nghiệm vật thật kết hợp hình ảnh trực quan từ công nghệ số/AI.\n"
+            f"- Trẻ hiểu cách thức tương tác với các thiết bị, học liệu số ({digital_str}) một cách an toàn và hiệu quả.\n"
+            f"2. Kỹ năng & Năng lực số:\n"
+            f"- Hình thành năng lực số ban đầu cho trẻ {age}: Biết quan sát màn hình tương tác, chạm/chọn đúng biểu tượng trong trò chơi số, lắng nghe âm thanh số và phản hồi chính xác.\n"
+            f"- Rèn kỹ năng quan sát, so sánh, làm việc nhóm và diễn đạt mạch lạc ({methods_str}).\n"
+            f"3. Thái độ:\n"
+            f"- Trẻ hào hứng khám phá, chủ động tham gia hoạt động ({proactivity}); biết giữ khoảng cách an toàn khi xem màn hình và bảo vệ thiết bị công nghệ."
+        )
+    else:
+        goals_block = (
+            f"1. Mục tiêu trọng tâm & Năng lực số:\n"
+            f"- {goals}\n"
+            f"- Phát triển kỹ năng thao tác trực quan trên thiết bị số ({digital_str}), phối hợp nhịp nhàng giữa trải nghiệm vật lý và công nghệ AI.\n"
+            f"- Giáo dục trẻ ý thức sử dụng thiết bị công nghệ văn minh, an toàn cho đôi mắt."
+        )
+
+    note_block = f"\n- Lưu ý bổ sung của giáo viên: {extra_notes}" if extra_notes else ""
+
+    text = f"""{school.upper()}
+Lớp: {class_name} | Độ tuổi: {age} | Số trẻ: {num_kids} trẻ
+GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ & ỨNG DỤNG AI
+ĐỀ TÀI: {topic.upper()}
+Chủ đề: {theme} | Lĩnh vực: {domain}
+Loại hoạt động: {act_type} | Thời lượng: {duration}
+Hướng tiếp cận: {approach} | Hình thức: {org_form} ({proactivity})
+Người soạn: {teacher} | Ngày dạy: {today_str}
+
+I. MỤC ĐÍCH - YÊU CẦU
+{goals_block}
+
+II. CHUẨN BỊ HỌC LIỆU & KHÔNG GIAN SỐ
+1. Đồ dùng của cô:
+- Học liệu truyền thống: {teacher_tools}.
+- Thiết bị & Học liệu công nghệ số: {digital_equip}; tích hợp bộ công cụ số: {digital_str}.{note_block}
+2. Đồ dùng của trẻ:
+- Học liệu vật lý trải nghiệm thực tế: {child_tools}.
+- Thẻ tín hiệu / Thẻ QR hoặc thiết bị tương tác nhóm.
+3. Không gian tổ chức:
+- Địa điểm: {space} ({space_req}).
+
+III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG TÍCH HỢP NĂNG LỰC SỐ
+Hoạt động 1: Mở đầu - Khơi gợi hứng thú với Công nghệ số (4 - 5 phút)
+- Hình thức dẫn dắt ({intro_str}): Cô xuất hiện cùng trợ lý ảo AI trên màn hình tương tác phát tín hiệu âm thanh vui nhộn chào đón các bé lớp {class_name}.
+- Trợ lý ảo AI đưa ra hình ảnh ẩn đố hoặc tình huống bất ngờ gắn với chủ đề '{theme}' để dẫn dắt trẻ khám phá '{topic}'.
+- Cô trò chuyện ngắn, kích thích trí tò mò và chuyển tiếp tự nhiên vào phần trọng tâm.
+
+Hoạt động 2: Trọng tâm - Khám phá Đa phương tiện & Tương tác Số (20 - 25 phút)
+- Bước 1: Khám phá kết hợp Học liệu số & Trải nghiệm thực tế:
+  + Cô trình chiếu hình ảnh mô phỏng sinh động / video ngắn sắc nét (thiết kế qua {digital_str}) giúp trẻ quan sát cận cảnh những góc nhìn thú vị về '{topic}'.
+  + Kết hợp cho trẻ trực tiếp cầm nắm, quan sát và thao tác trên đồ dùng vật lý ({child_tools}) bằng đa giác quan.
+  + Cô sử dụng phương pháp ({methods_str}), đặt câu hỏi mở để trẻ thảo luận nhóm và chia sẻ phát hiện của mình.
+- Bước 2: Tương tác Năng lực số - Trẻ thực hành công nghệ:
+  + Cô mời trẻ lên tương tác trực tiếp trên màn hình cảm ứng / bảng tương tác hoặc quét thẻ QR để phân loại, ghép đôi kiến thức về '{topic}'.
+  + Hệ thống AI / Trò chơi số phát âm thanh khen ngợi tức thì khi trẻ chọn đúng, tạo hứng thú mạnh mẽ cho cả lớp.
+- Bước 3: Trò chơi số hóa & Mở rộng sáng tạo:
+  + Tổ chức cho trẻ chơi trò chơi tương tác số theo đội nhóm kết hợp vận động thực tế.
+  + Cô bao quát, hướng dẫn trẻ thao tác đúng cách trên thiết bị và nhắc trẻ giữ khoảng cách mắt an toàn.
+
+Hoạt động 3: Kết thúc & Củng cố ({outro_str}) (3 - 5 phút)
+- Trợ lý ảo AI cùng cô giáo tổng kết lại những kiến thức bổ ích về '{topic}' và tuyên dương tinh thần chủ động của các bé.
+- Nhắc nhở trẻ cất dọn đồ dùng vật lý gọn gàng, tắt thiết bị số đúng quy trình và chuyển hoạt động nhẹ nhàng.
+
+IV. ĐÁNH GIÁ CUỐI NGÀY
+- Tình trạng sức khỏe: Trẻ khỏe mạnh, hào hứng, giữ đúng khoảng cách an toàn khi tương tác với màn hình thiết bị số.
+- Trạng thái cảm xúc, thái độ: Trẻ vô cùng thích thú với nhân vật AI và các hiệu ứng âm thanh, hình ảnh số; tích cực hợp tác cùng bạn.
+- Kiến thức, kỹ năng & Năng lực số: Trẻ nắm vững nội dung '{topic}', thao tác chạm/chọn và phản xạ với học liệu số ({digital_str}) tự tin, linh hoạt."""
+    return clean_markdown_text(text)
 
 # --- BỘ CỨU CÁNH KẾ HOẠCH THÁNG (VIDEO 1) ---
 def generate_instant_month_plan(info: dict) -> str:
@@ -742,6 +956,8 @@ def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data
 
     if fallback_type == "plan":
         return generate_instant_pedagogical_plan(fallback_data)
+    elif fallback_type == "digital":
+        return generate_instant_digital_plan(fallback_data)
     elif fallback_type == "month":
         return generate_instant_month_plan(fallback_data)
     elif fallback_type == "week":
@@ -784,7 +1000,7 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None, f
                 p.add_run(line_s)
 
     safe_topic = "".join(c if c.isalnum() else "_" for c in info.get('topic', 'KeHoach'))[:40]
-    filename = f"KeHoach_{safe_topic}.docx"
+    filename = f"GiaoAn_{safe_topic}.docx"
     doc.save(filename)
     return filename
 
@@ -825,7 +1041,7 @@ if not st.session_state["authenticated"]:
 
 # --- GIAO DIỆN CHÍNH SAU KHI MỞ KHÓA ---
 st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
-st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, lên kế hoạch tháng, sáng tác trò chơi, viết sổ liên lạc và quản lý lớp học tự động.")
+st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học tự động.")
 
 # ==========================================
 # SIDEBAR (DANH MỤC TÍNH NĂNG Ở TRÊN CÙNG)
@@ -837,6 +1053,7 @@ with st.sidebar:
         app_mode = st.radio("Chọn tác vụ:", [
             "👑 Quản Lý Khách Thuê (Admin)", 
             "📝 Soạn Giáo Án Chuẩn", 
+            "💻 Tích Hợp Năng Lực Số",
             "🗓️ Kế Hoạch & Sổ Chủ Đề", 
             "🎯 Trò Chơi & Đố Vui", 
             "💬 Sổ Liên Lạc & Zalo", 
@@ -846,6 +1063,7 @@ with st.sidebar:
     else:
         app_mode = st.radio("Chọn tác vụ:", [
             "📝 Soạn Giáo Án Chuẩn", 
+            "💻 Tích Hợp Năng Lực Số",
             "🗓️ Kế Hoạch & Sổ Chủ Đề", 
             "🎯 Trò Chơi & Đố Vui", 
             "💬 Sổ Liên Lạc & Zalo", 
@@ -1181,6 +1399,403 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 st.rerun()
 
 # =========================================================================
+# TAB MỚI: SOẠN GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ (CHUẨN THEO VIDEO)
+# =========================================================================
+elif app_mode == "💻 Tích Hợp Năng Lực Số":
+    head_c1, head_c2 = st.columns([3, 1])
+    with head_c1:
+        st.subheader("💻 Soạn Giáo Án Tích Hợp Năng Lực Số")
+        st.caption("Gợi ý bài học hiện đại, linh hoạt, kích thích tư duy tương tác và niềm vui khám phá")
+    with head_c2:
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        if st.button("🧪 Nhập Dữ Liệu Thử Nghiệm", type="secondary", use_container_width=True):
+            st.session_state["dg_teacher"] = "Nguyễn Thị Thanh Vân"
+            st.session_state["dg_school"] = "Trường Mầm Non Phước Thạnh"
+            st.session_state["dg_class"] = "Chồi 1"
+            st.session_state["dg_theme"] = "Thế giới thực vật"
+            st.session_state["dg_topic"] = "Khám phá sự kỳ diệu của quả cam"
+            st.session_state["dg_goals"] = "Trẻ làm quen và nhận biết thế giới xung quanh qua hình ảnh sinh động, rèn kỹ năng tương tác với màn hình thiết bị, biết lắng nghe và làm theo hướng dẫn trong 15 phút."
+            st.session_state["dg_t_tools"] = "Bộ học liệu tĩnh, thẻ hình ảnh, mô hình sản phẩm hoàn chỉnh..."
+            st.session_state["dg_c_tools"] = "Quả cam tươi, cốc nước, khăn lau tay, thẻ hình..."
+            st.session_state["dg_equip"] = "Máy tính kết nối tivi thông minh, bảng tương tác, loa bluetooth"
+            st.session_state["dg_space_req"] = "Không gian thoáng, đủ ánh sáng, màn hình vừa tầm mắt trẻ"
+            st.session_state["dg_notes"] = "Lồng ghép nhân vật trợ lý ảo AI dẫn chuyện xuyên suốt tiết học"
+            st.success("✅ Đã nạp dữ liệu thử nghiệm mẫu!")
+
+    # --- MỤC I: THÔNG TIN GIÁO VIÊN & LỚP HỌC ---
+    with st.container(border=True):
+        st.markdown("#### 👤 I. THÔNG TIN GIÁO VIÊN & LỚP HỌC")
+        dg_c1, dg_c2, dg_c3, dg_c4 = st.columns([2, 2, 1.2, 1.3])
+        with dg_c1:
+            dg_teacher = st.text_input("Tên giáo viên", value=st.session_state.get("dg_teacher", "Nguyễn Thị Thanh Vân"), placeholder="Ví dụ: Nguyễn Thị Mai", key="in_dg_teacher")
+        with dg_c2:
+            dg_school = st.text_input("Tên trường mầm non", value=st.session_state.get("dg_school", "Trường Mầm Non Phước Thạnh"), placeholder="Ví dụ: Mầm non Sao Mai", key="in_dg_school")
+        with dg_c3:
+            dg_class = st.text_input("Lớp", value=st.session_state.get("dg_class", "Chồi 1"), placeholder="Ví dụ: Chồi 2", key="in_dg_class")
+        with dg_c4:
+            dg_age = st.selectbox("Độ tuổi trẻ", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=3, key="in_dg_age")
+
+    # --- MỤC II: NỘI DUNG HOẠT ĐỘNG CHÍNH ---
+    with st.container(border=True):
+        st.markdown("#### 📖 II. NỘI DUNG HOẠT ĐỘNG CHÍNH")
+        nd_c1, nd_c2 = st.columns(2)
+        with nd_c1:
+            dg_theme = st.text_input("Chủ đề/Chủ điểm lớn *", value=st.session_state.get("dg_theme", "Thế giới thực vật"), placeholder="Ví dụ: Thế giới động vật, Ngày tết, 20-11...", key="in_dg_theme")
+        with nd_c2:
+            dg_topic = st.text_input("Tên hoạt động/giờ dạy *", value=st.session_state.get("dg_topic", "Khám phá sự kỳ diệu của quả cam"), placeholder="Ví dụ: Khám phá sự kỳ diệu của quả cam", key="in_dg_topic")
+
+        nd_c3, nd_c4, nd_c5, nd_c6 = st.columns([2, 2, 1.5, 1.2])
+        with nd_c3:
+            dg_domain = st.selectbox(
+                "Lĩnh vực phát triển",
+                ["Phát triển nhận thức", "Phát triển thể chất", "Phát triển ngôn ngữ", "Phát triển thẩm mỹ", "Phát triển tình cảm - KNXH"],
+                index=0,
+                key="in_dg_domain"
+            )
+        with nd_c4:
+            dg_act_type = st.selectbox(
+                "Loại hoạt động",
+                ["Ứng dụng công nghệ/AI", "Khám phá tương tác số", "Trò chơi công nghệ số", "Hoạt động STEAM & Số hóa", "Kể chuyện/Âm nhạc tương tác AI"],
+                index=0,
+                key="in_dg_act_type"
+            )
+        with nd_c5:
+            dg_duration = st.selectbox("Thời lượng", ["15 - 20 phút", "20 - 25 phút", "25 - 30 phút", "30 - 35 phút"], index=3, key="in_dg_duration")
+        with nd_c6:
+            dg_num_kids = st.number_input("Số trẻ tham gia", min_value=5, max_value=60, value=25, step=1, key="in_dg_num_kids")
+
+        dg_goals = st.text_area(
+            "Mục tiêu giáo dục (Để trống nếu muốn AI tự tạo mục tiêu):",
+            value=st.session_state.get("dg_goals", ""),
+            placeholder="Trẻ làm quen và nhận biết thế giới xung quanh qua hình ảnh sinh động, rèn kỹ năng tương tác với màn hình thiết bị, biết lắng nghe và làm theo hướng dẫn trong 15 phút.",
+            height=90,
+            key="in_dg_goals"
+        )
+
+    # --- MỤC III: ĐỒ DÙNG DẠY HỌC & KHÔNG GIAN TỔ CHỨC ---
+    with st.container(border=True):
+        st.markdown("#### 🧰 III. ĐỒ DÙNG DẠY HỌC & KHÔNG GIAN TỔ CHỨC")
+        dd_c1, dd_c2 = st.columns(2)
+        with dd_c1:
+            dg_teacher_tools = st.text_area(
+                "Đồ dùng của cô",
+                value=st.session_state.get("dg_t_tools", ""),
+                placeholder="Bộ học liệu tĩnh, thẻ hình ảnh, mô hình sản phẩm hoàn chỉnh...",
+                height=80,
+                key="in_dg_t_tools"
+            )
+        with dd_c2:
+            dg_child_tools = st.text_area(
+                "Đồ dùng của trẻ (Các học liệu vật lý trẻ được cầm nắm)",
+                value=st.session_state.get("dg_c_tools", ""),
+                placeholder="Lá cây khô, cốc nước, đất nặn, giấy A3, màu nước, rổ nhựa...",
+                height=80,
+                key="in_dg_c_tools"
+            )
+
+        dd_left, dd_right = st.columns([1.4, 1])
+        with dd_left:
+            dg_equip = st.text_input(
+                "💻 Học liệu số & Thiết bị công nghệ (Nhập hoặc chọn gợi ý sẵn):",
+                value=st.session_state.get("dg_equip", ""),
+                placeholder="Ví dụ: Máy tính kết nối tivi, tivi thông minh, loa bluetooth...",
+                key="in_dg_equip"
+            )
+            st.caption("Học liệu và công cụ số chuẩn bị sẵn (Chọn một hoặc nhiều):")
+            hl_c1, hl_c2, hl_c3, hl_c4 = st.columns(4)
+            with hl_c1:
+                hl_1 = st.checkbox("Bảng tương tác", value=True, key="hl_1")
+                hl_5 = st.checkbox("Âm thanh số", value=True, key="hl_5")
+                hl_9 = st.checkbox("Tự chọn khác", key="hl_9")
+            with hl_c2:
+                hl_2 = st.checkbox("Canva", value=True, key="hl_2")
+                hl_6 = st.checkbox("Trò chơi số", value=True, key="hl_6")
+            with hl_c3:
+                hl_3 = st.checkbox("PowerPoint", key="hl_3")
+                hl_7 = st.checkbox("Thẻ QR", key="hl_7")
+            with hl_c4:
+                hl_4 = st.checkbox("Video", value=True, key="hl_4")
+                hl_8 = st.checkbox("AI tạo hình ảnh", value=True, key="hl_8")
+
+            selected_digital_tools = []
+            for flag, label in [
+                (hl_1, "Bảng tương tác"), (hl_2, "Canva"), (hl_3, "PowerPoint"),
+                (hl_4, "Video"), (hl_5, "Âm thanh số"), (hl_6, "Trò chơi số"),
+                (hl_7, "Thẻ QR"), (hl_8, "AI tạo hình ảnh"), (hl_9, "Học liệu số mở rộng")
+            ]:
+                if flag:
+                    selected_digital_tools.append(label)
+
+        with dd_right:
+            dg_space = st.selectbox(
+                "📍 Không gian tổ chức hoạt động",
+                ["Trong lớp học", "Ngoài sân trường", "Phòng chức năng / Phòng STEAM", "Góc tương tác thông minh"],
+                index=0,
+                key="in_dg_space"
+            )
+            dg_space_req = st.text_input(
+                "Yêu cầu về ánh sáng / âm thanh / bố trí",
+                value=st.session_state.get("dg_space_req", ""),
+                placeholder="Không gian thoáng, đủ ánh sáng...",
+                key="in_dg_space_req"
+            )
+
+    # --- MỤC IV: HƯỚNG TIẾP CẬN & PHƯƠNG PHÁP GIÁO DỤC ---
+    with st.container(border=True):
+        st.markdown("#### 🎯 IV. HƯỚNG TIẾP CẬN & PHƯƠNG PHÁP GIÁO DỤC")
+        pp_c1, pp_c2, pp_c3 = st.columns(3)
+        with pp_c1:
+            dg_org_form = st.selectbox("Hình thức tổ chức chủ đạo", ["Cả lớp", "Theo nhóm nhỏ", "Cá nhân", "Kết hợp Cả lớp & Nhóm nhỏ"], index=0, key="in_dg_org")
+        with pp_c2:
+            dg_approach = st.selectbox("Hướng tiếp cận sư phạm", ["Tích hợp năng lực số", "Lấy trẻ làm trung tâm kết hợp AI", "Khám phá trải nghiệm đa phương tiện", "Học qua chơi (Game-based Learning)"], index=0, key="in_dg_app")
+        with pp_c3:
+            dg_proactivity = st.selectbox("Mức độ chủ động của trẻ", ["Trẻ chủ động", "Cô dẫn dắt - Trẻ tương tác", "Trẻ tự khám phá theo nhóm"], index=0, key="in_dg_pro")
+
+        st.caption("Các phương pháp dạy học muốn tích hợp (Có thể chọn nhiều):")
+        m_col1, m_col2, m_col3, m_col4, m_col5, m_col6, m_col7 = st.columns(7)
+        with m_col1:
+            pm_1 = st.checkbox("Quan sát", value=True, key="pm_1")
+            pm_8 = st.checkbox("Sử dụng công nghệ số", value=True, key="pm_8")
+        with m_col2:
+            pm_2 = st.checkbox("Đàm thoại", value=True, key="pm_2")
+        with m_col3:
+            pm_3 = st.checkbox("Trò chơi", value=True, key="pm_3")
+        with m_col4:
+            pm_4 = st.checkbox("Thí nghiệm", key="pm_4")
+        with m_col5:
+            pm_5 = st.checkbox("Thực hành", value=True, key="pm_5")
+        with m_col6:
+            pm_6 = st.checkbox("Làm việc nhóm", key="pm_6")
+        with m_col7:
+            pm_7 = st.checkbox("Giải quyết vấn đề", key="pm_7")
+
+        selected_methods = []
+        for flag, label in [
+            (pm_1, "Quan sát"), (pm_2, "Đàm thoại"), (pm_3, "Trò chơi"),
+            (pm_4, "Thí nghiệm"), (pm_5, "Thực hành"), (pm_6, "Làm việc nhóm"),
+            (pm_7, "Giải quyết vấn đề"), (pm_8, "Sử dụng công nghệ số")
+        ]:
+            if flag:
+                selected_methods.append(label)
+
+        st.markdown("💡 **Yêu cầu đặc biệt trong phần Mở đầu (Có thể chọn thêm gợi ý):**")
+        in_c1, in_c2, in_c3, in_c4, in_c5, in_c6 = st.columns(6)
+        with in_c1:
+            in_opt1 = st.checkbox("Câu đố vui", key="in_opt1")
+        with in_c2:
+            in_opt2 = st.checkbox("Bài hát/Vận động", value=True, key="in_opt2")
+        with in_c3:
+            in_opt3 = st.checkbox("Tình huống bất ngờ", value=True, key="in_opt3")
+        with in_c4:
+            in_opt4 = st.checkbox("Video/Hình ảnh AI", value=True, key="in_opt4")
+        with in_c5:
+            in_opt5 = st.checkbox("Trò chơi nhỏ", key="in_opt5")
+        with in_c6:
+            in_opt6 = st.checkbox("Nhân vật rối/Ảo", value=True, key="in_opt6")
+
+        selected_intro = []
+        for flag, label in [
+            (in_opt1, "Câu đố vui"), (in_opt2, "Bài hát/Vận động"), (in_opt3, "Tình huống bất ngờ"),
+            (in_opt4, "Video/Hình ảnh AI"), (in_opt5, "Trò chơi nhỏ"), (in_opt6, "Nhân vật rối/Ảo")
+        ]:
+            if flag:
+                selected_intro.append(label)
+
+        st.markdown("🔄 **Yêu cầu đặc biệt phần Kết thúc / Củng cố:**")
+        out_c1, out_c2, out_c3, out_c4 = st.columns(4)
+        with out_c1:
+            out_opt1 = st.checkbox("Đánh giá nhẹ nhàng", value=True, key="out_opt1")
+        with out_c2:
+            out_opt2 = st.checkbox("Hát/Vận động", key="out_opt2")
+        with out_c3:
+            out_opt3 = st.checkbox("Trò chơi củng cố", value=True, key="out_opt3")
+        with out_c4:
+            out_opt4 = st.checkbox("Gợi mở hoạt động sau", key="out_opt4")
+
+        selected_outro = []
+        for flag, label in [
+            (out_opt1, "Đánh giá nhẹ nhàng"), (out_opt2, "Hát/Vận động"),
+            (out_opt3, "Trò chơi củng cố"), (out_opt4, "Gợi mở hoạt động sau")
+        ]:
+            if flag:
+                selected_outro.append(label)
+
+        dg_extra_notes = st.text_input(
+            "📝 Ghi chú thêm khác (Ví dụ: Thêm phần dặn dò, thêm trò chơi dân gian...):",
+            value=st.session_state.get("dg_notes", ""),
+            placeholder="Để trống nếu không có yêu cầu đặc biệt...",
+            key="in_dg_notes"
+        )
+
+    digital_info_dict = {
+        "school": dg_school,
+        "teacher": dg_teacher,
+        "class_name": dg_class,
+        "age": dg_age,
+        "theme": dg_theme,
+        "topic": dg_topic,
+        "domain": dg_domain,
+        "activity_type": dg_act_type,
+        "duration": dg_duration,
+        "num_children": dg_num_kids,
+        "goals": dg_goals,
+        "teacher_tools": dg_teacher_tools,
+        "child_tools": dg_child_tools,
+        "digital_equip": dg_equip,
+        "digital_tools": selected_digital_tools,
+        "space": dg_space,
+        "space_req": dg_space_req,
+        "org_form": dg_org_form,
+        "approach": dg_approach,
+        "proactivity": dg_proactivity,
+        "methods": selected_methods,
+        "intro_opts": selected_intro,
+        "outro_opts": selected_outro,
+        "extra_notes": dg_extra_notes,
+        "doc_title": "GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ & AI"
+    }
+
+    if st.button("✨ Soạn Giáo Án Với AI", type="primary", use_container_width=True, key="btn_create_digital_plan"):
+        with st.spinner("⚡ Đang thiết kế Giáo án Tích hợp Năng lực số & AI hiện đại..."):
+            if api_key:
+                try:
+                    client = genai.Client(api_key=api_key)
+                    prompt_digital = f"""
+                    Soạn giáo án mầm non Tích hợp Năng lực số và Ứng dụng AI chuẩn Bộ GD&ĐT Việt Nam:
+                    - Trường: {dg_school} | Giáo viên: {dg_teacher} | Lớp: {dg_class} | Độ tuổi: {dg_age} | Số trẻ: {dg_num_kids}
+                    - Chủ đề lớn: {dg_theme} | Tên hoạt động: {dg_topic}
+                    - Lĩnh vực: {dg_domain} | Loại hoạt động: {dg_act_type} | Thời lượng: {dg_duration}
+                    - Mục tiêu giáo dục: {dg_goals if dg_goals else 'Tự động tạo chuẩn kiến thức, kỹ năng, năng lực số và thái độ'}
+                    - Đồ dùng của cô: {dg_teacher_tools} | Đồ dùng vật lý của trẻ: {dg_child_tools}
+                    - Thiết bị số: {dg_equip} | Công cụ số sử dụng: {', '.join(selected_digital_tools)}
+                    - Không gian: {dg_space} ({dg_space_req})
+                    - Hình thức: {dg_org_form} | Hướng tiếp cận: {dg_approach} | Mức độ chủ động: {dg_proactivity}
+                    - Phương pháp: {', '.join(selected_methods)}
+                    - Mở đầu: {', '.join(selected_intro)} | Kết thúc: {', '.join(selected_outro)}
+                    - Ghi chú thêm: {dg_extra_notes}
+
+                    Trình bày rõ ràng 4 phần: I. MỤC ĐÍCH - YÊU CẦU, II. CHUẨN BỊ HỌC LIỆU & KHÔNG GIAN SỐ, III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG TÍCH HỢP NĂNG LỰC SỐ, IV. ĐÁNH GIÁ CUỐI NGÀY. Tuyệt đối không dùng dấu ### hoặc **.
+                    """
+                    res_digital = generate_fast_ai_content(client, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
+                except Exception:
+                    res_digital = generate_instant_digital_plan(digital_info_dict)
+            else:
+                res_digital = generate_instant_digital_plan(digital_info_dict)
+
+            res_digital = clean_markdown_text(res_digital)
+            st.session_state["saved_digital_plan"] = res_digital
+            st.session_state["saved_digital_info"] = digital_info_dict
+            save_plan_to_db(f"[Năng Lực Số] {dg_topic}", res_digital)
+        st.success("🎉 Đã hoàn thành Giáo án Tích hợp Năng lực số! Xem và thao tác bên dưới:")
+
+    if "saved_digital_plan" in st.session_state:
+        st.divider()
+        d_info = st.session_state["saved_digital_info"]
+        d_font_size = st.session_state.get("d_font_size_slider", 14)
+
+        st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
+        db_col1, db_col2 = st.columns(2)
+        with db_col1:
+            d_docx = export_docx_from_text(st.session_state["saved_digital_plan"], d_info, font_size_pt=d_font_size)
+            with open(d_docx, "rb") as f_d:
+                st.download_button(
+                    label="📥 Tải File Word (.docx) Giáo Án Số",
+                    data=f_d,
+                    file_name=d_docx,
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    type="primary",
+                    use_container_width=True,
+                    key="dl_digital_btn"
+                )
+        with db_col2:
+            d_json_text = json.dumps(st.session_state["saved_digital_plan"])
+            d_title_json = json.dumps(f"Giáo Án Năng Lực Số: {d_info['topic']}")
+            print_d_html = f"""
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+                <button onclick="printDigitalPlan()" style="
+                    background: linear-gradient(135deg, #00B894, #00897B);
+                    color: white;
+                    border: none;
+                    padding: 10px 24px;
+                    border-radius: 12px;
+                    font-size: 15px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    width: 100%;
+                    box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28);
+                    transition: all 0.2s ease;
+                ">
+                    🖨️ In Giáo Án Ngay
+                </button>
+            </div>
+            <script>
+            function printDigitalPlan() {{
+                var rawContent = {d_json_text};
+                var docTitle = {d_title_json};
+                var pWin = window.open('', '_blank');
+                pWin.document.write('<!DOCTYPE html><html><head><title>' + docTitle + '</title>');
+                pWin.document.write('<style>');
+                pWin.document.write('@page {{ size: A4; margin: 15mm 20mm 15mm 20mm; }}');
+                pWin.document.write('body {{ font-family: "Times New Roman", Times, serif; font-size: {d_font_size}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }}');
+                pWin.document.write('.doc-body {{ white-space: pre-wrap; word-wrap: break-word; text-align: justify; }}');
+                pWin.document.write('</style></head><body>');
+                pWin.document.write('<div class="doc-body">' + rawContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\\n/g, "<br/>") + '</div>');
+                pWin.document.write('</body></html>');
+                pWin.document.close();
+                pWin.focus();
+                setTimeout(function() {{
+                    pWin.print();
+                    pWin.close();
+                }}, 350);
+            }}
+            </script>
+            """
+            components.html(print_d_html, height=45)
+
+        di_c1, di_c2 = st.columns(2)
+        with di_c1:
+            st.success("✅ **Điểm sư phạm & Năng lực số: 100/100**")
+        with di_c2:
+            st.info(f"💻 **Tiếp cận:** {d_info['approach']} | {d_info['age']}")
+
+        d_font_size = st.slider(
+            "🔤 Kích thước chữ hiển thị & In (pt):",
+            min_value=12,
+            max_value=24,
+            value=d_font_size,
+            step=1,
+            key="d_font_size_slider"
+        )
+
+        st.markdown("### 📄 Bản Xem Trước Giáo Án Tích Hợp Năng Lực Số (Trang Giấy In):")
+        escaped_digital_text = html.escape(st.session_state["saved_digital_plan"])
+        st.markdown(
+            f"""
+            <div style="
+                background-color: #ffffff;
+                color: #111111;
+                font-family: 'Times New Roman', Times, serif;
+                font-size: {d_font_size}pt;
+                line-height: 1.6;
+                padding: 30px 40px;
+                border-radius: 12px;
+                border: 1.5px solid #B2E5D6;
+                box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08);
+                white-space: pre-wrap;
+                text-align: justify;
+                word-wrap: break-word;
+            ">{escaped_digital_text}</div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        with st.expander("✏️ Chỉnh sửa nội dung Giáo Án Năng Lực Số"):
+            ed_d_text = st.text_area("Nội dung:", st.session_state["saved_digital_plan"], height=380, key="ed_d_ta")
+            if ed_d_text != st.session_state["saved_digital_plan"]:
+                st.session_state["saved_digital_plan"] = clean_markdown_text(ed_d_text)
+                st.rerun()
+
+# =========================================================================
 # TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 THÁNG)
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
@@ -1215,7 +1830,6 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             m_school = st.text_input("Tên trường", "Trường Mầm Non Phước Thạnh", key="m_tr")
         with m_c2:
             m_class = st.text_input("Lớp học", "Lớp Chồi 1", key="m_lp")
-            # --- ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 tháng ---
             m_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="m_dt")
 
         m_c3, m_c4 = st.columns(2)
@@ -1322,7 +1936,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 m_json_text = json.dumps(st.session_state["saved_month_plan"])
                 m_title_json = json.dumps(f"Kế Hoạch Giáo Dục: {m_info['theme']}")
                 print_m_html = f"""
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
                     <button onclick="printMonthPlan()" style="
                         background: linear-gradient(135deg, #00B894, #00897B);
                         color: white;
@@ -1360,7 +1974,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 }}
                 </script>
                 """
-                components.html(print_m_html, height=52)
+                components.html(print_m_html, height=45)
 
             mi_c1, mi_c2 = st.columns(2)
             with mi_c1:
@@ -1416,7 +2030,6 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             w_teacher = st.text_input("Tên giáo viên", "Nguyễn Thị Thanh Vân", key="w_gv")
         with w_c2:
             w_class = st.text_input("Lớp học", "Lớp Chồi 1", key="w_lp")
-            # --- ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 tháng ---
             w_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="w_dt")
         with w_c3:
             w_week_num = st.selectbox("Tuần thực hiện", ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4", "Tuần 5"], index=0, key="w_so_tuan")
@@ -1553,7 +2166,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 w_json_text = json.dumps(st.session_state["saved_week_plan"])
                 w_title_json = json.dumps(f"Kế Hoạch Tuần: {w_info['theme_week']}")
                 print_w_html = f"""
-                <div style="display: flex; justify-content: center; align-items: center; width: 100%;">
+                <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
                     <button onclick="printWeekPlan()" style="
                         background: linear-gradient(135deg, #00B894, #00897B);
                         color: white;
@@ -1591,7 +2204,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 }}
                 </script>
                 """
-                components.html(print_w_html, height=52)
+                components.html(print_w_html, height=45)
 
             wi_c1, wi_c2 = st.columns(2)
             with wi_c1:
