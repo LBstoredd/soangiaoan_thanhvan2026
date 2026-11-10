@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import time
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -114,12 +115,13 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM GỌI AI THÔNG MINH SỬ DỤNG MÔ HÌNH API CÔNG KHAI ---
+# --- HÀM GỌI AI THÔNG MINH - CHỐT CỨNG 3.8 VÀ TỰ ĐỘNG CHỜ KHI NGHẼN ---
 def call_gemini_safely(client, prompt):
-    # Sử dụng gemini-1.5-flash là mô hình API công khai chuẩn nhất hiện nay
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-    last_error = None
-    for model_name in models_to_try:
+    model_name = 'gemini-3.8-flash'
+    max_retries = 5  # Tự động thử lại tối đa 5 lần
+    last_err = ""
+    
+    for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
                 model=model_name,
@@ -127,9 +129,17 @@ def call_gemini_safely(client, prompt):
             )
             return response
         except Exception as e:
-            last_error = e
-            continue
-    raise Exception(f"Không thể kết nối AI. Lỗi gốc: {last_error}. Vui lòng thử lại sau vài giây.")
+            last_err = str(e)
+            # Nếu gặp lỗi 503 nghẽn mạng, tự động đợi 3 giây rồi thử lại mà không báo lỗi
+            if "503" in last_err or "UNAVAILABLE" in last_err or "demand" in last_err.lower():
+                time.sleep(3)
+                continue
+            else:
+                # Nếu là lỗi khác (như sai key), báo lỗi ngay
+                raise Exception(f"Lỗi hệ thống: {last_err}")
+                
+    # Nếu đã thử 5 lần (tương đương đợi 15 giây) mà mạng vẫn nghẽn
+    raise Exception("Máy chủ AI 3.8 Flash đang có quá tải. Cô vui lòng chờ khoảng 30 giây rồi bấm TẠO BẢN ÁN lại nhé!")
 
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
@@ -428,7 +438,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
-                # Hiển thị trên giao diện là Gemini 3.8 Flash cho chuyên nghiệp
                 with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non (Gemini 3.8 Flash)..."):
                     response = call_gemini_safely(client, prompt)
                     
@@ -467,7 +476,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 use_container_width=True
             )
 
-# --- CÁC TAB CÒN LẠI ---
+# --- CÁC TAB CÒN LẠI (ÁP DỤNG HÀM AI THÔNG MINH) ---
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     st.subheader("🗓️ Lập Kế Hoạch Giáo Dục Theo Chủ Đề & Tháng")
     theme_input = st.text_input("Nhập tên Chủ Đề Lớn (VD: Thế giới thực vật, Giao thông, Tết và mùa xuân...)")
