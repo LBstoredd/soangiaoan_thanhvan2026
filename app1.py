@@ -375,7 +375,7 @@ def generate_instant_month_plan(info: dict) -> str:
     school = info.get("school", "Trường Mầm Non")
     teacher = info.get("teacher", "Giáo viên")
     class_name = info.get("class_name", "Lớp Mẫu giáo")
-    age = info.get("age", "4-5 tuổi")
+    age = info.get("age", "24-36 tháng")
     month = info.get("month", "Tháng 10")
     theme = info.get("theme", "Thế giới xung quanh")
     goals = info.get("goals", "").strip()
@@ -444,7 +444,7 @@ def generate_instant_week_plan(info: dict) -> str:
     school = info.get("school", "Trường Mầm Non")
     teacher = info.get("teacher", "Giáo viên")
     class_name = info.get("class_name", "Lớp Mẫu giáo")
-    age = info.get("age", "4-5 tuổi")
+    age = info.get("age", "24-36 tháng")
     week_num = info.get("week_num", "Tuần 1")
     theme_month = info.get("theme_month", "Chủ đề tháng")
     theme_week = info.get("theme_week", "Nhánh tuần")
@@ -958,7 +958,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 2. LOẠI HÌNH HOẠT ĐỘNG *")
     activity_type = st.radio("Chọn loại hoạt động", ["Hoạt động học", "Hoạt động góc / Vui chơi", "Hoạt động ngoài trời", "Hoạt động chiều"], horizontal=True)
 
-    # --- ĐÃ CĂN CHỈNH NGAY NGẮN THẲNG HÀNG PHẦN 3 VÀ 4 ---
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown("### 3. LĨNH VỰC PHÁT TRIỂN *")
@@ -1080,7 +1079,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         
         st.markdown("### 🛠️ Tùy Chỉnh Trình Bày & Thao Tác")
         
-        # --- ĐÃ CĂN CHỈNH NÚT TẢI WORD VÀ IN GIÁO ÁN NGAY THẲNG HÀNG CÂN ĐỐI ---
         btn_col1, btn_col2 = st.columns(2)
         with btn_col1:
             template_path = uploaded_template if uploaded_template else None
@@ -1139,14 +1137,12 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             """
             components.html(print_button_html, height=45)
 
-        # 2. ĐIỂM SƯ PHẠM, ĐỊNH DẠNG CỘT
         info_col1, info_col2 = st.columns(2)
         with info_col1:
             st.success("✅ **Điểm sư phạm: 100/100**")
         with info_col2:
             st.info(f"📐 **Định dạng:** {info['display_format']}")
             
-        # 3. KÍCH THƯỚC HIỂN THỊ
         font_size_val = st.slider(
             "🔤 Kích thước chữ hiển thị & In (pt):", 
             min_value=12, 
@@ -1156,7 +1152,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             key="font_size_slider"
         )
         
-        # 4. BẢN XEM TRƯỚC GIÁO ÁN
         st.markdown("### 📄 Bản Xem Trước Giáo Án (Trang Giấy In):")
         escaped_preview_text = html.escape(st.session_state["generated_plan_text"])
         st.markdown(
@@ -1186,7 +1181,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 st.rerun()
 
 # =========================================================================
-# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ THÊM ĐỘ TUỔI 2-4 TUỔI CHO CẢ THÁNG & TUẦN)
+# TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 THÁNG)
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng (Theo Video 1)", "📋 Kế Hoạch Tuần (Theo Video 2)"])
@@ -1198,7 +1193,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
         st.markdown("#### ⚡ Nạp Nhanh Trọn Bộ Kế Hoạch Từ Khung 9 Tháng Mẫu")
         col_nap1, col_nap2, col_nap3 = st.columns([2, 2, 2])
         with col_nap1:
-            sample_age_m = st.selectbox("Chọn độ tuổi mẫu", ["Lớp Nhà Trẻ (2-3 tuổi)", "Lớp Bé (3-4 tuổi)", "Lớp Nhỡ (4-5 tuổi)", "Lớp Lá (5-6 tuổi)"], index=1, key="sm_age")
+            sample_age_m = st.selectbox("Chọn độ tuổi mẫu", ["Lớp Nhà Trẻ (24-36 tháng)", "Lớp Bé (3-4 tuổi)", "Lớp Nhỡ (4-5 tuổi)", "Lớp Lá (5-6 tuổi)"], index=1, key="sm_age")
         with col_nap2:
             sample_month_m = st.selectbox("Chọn tháng mẫu", list(SAMPLE_9_MONTHS.keys()), index=1, key="sm_month")
         with col_nap3:
@@ -1220,8 +1215,8 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             m_school = st.text_input("Tên trường", "Trường Mầm Non Phước Thạnh", key="m_tr")
         with m_c2:
             m_class = st.text_input("Lớp học", "Lớp Chồi 1", key="m_lp")
-            # --- ĐÃ THÊM ĐỘ TUỔI 2-3 tuôi và 2-4 tuổi CHO KẾ HOẠCH THÁNG ---
-            m_age = st.selectbox("Độ tuổi", ["2-3 tuổi", "2-4 tuổi", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=2, key="m_dt")
+            # --- ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 tháng ---
+            m_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="m_dt")
 
         m_c3, m_c4 = st.columns(2)
         with m_c3:
@@ -1421,8 +1416,8 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             w_teacher = st.text_input("Tên giáo viên", "Nguyễn Thị Thanh Vân", key="w_gv")
         with w_c2:
             w_class = st.text_input("Lớp học", "Lớp Chồi 1", key="w_lp")
-            # --- ĐÃ THÊM ĐỘ TUỔI 2-3 tuổi và 2-4 tuổi CHO KẾ HOẠCH TUẦN ---
-            w_age = st.selectbox("Độ tuổi", ["2-3 tuổi", "2-4 tuổi", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="w_dt")
+            # --- ĐÃ CẬP NHẬT ĐỘ TUỔI 24-36 tháng ---
+            w_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1, key="w_dt")
         with w_c3:
             w_week_num = st.selectbox("Tuần thực hiện", ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4", "Tuần 5"], index=0, key="w_so_tuan")
             w_time_range = st.text_input("Thời gian", "Từ Thứ Hai đến Thứ Sáu", key="w_tg")
