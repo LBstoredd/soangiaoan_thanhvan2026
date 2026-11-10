@@ -8,6 +8,8 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from pydantic import BaseModel
 from datetime import datetime, timedelta
+import random
+import string
 
 # --- CẤU TRÚC DỮ LIỆU ĐẦU RA CHO AI (PYDANTIC) ---
 class LessonPlan(BaseModel):
@@ -42,10 +44,10 @@ def init_db():
         )
     ''')
     
-    # Tạo sẵn một mã dùng thử mặc định cho anh test: MÃ LÀ "LBSTORE2026" (hạn 1 năm)
+    # Tạo sẵn mã master cho anh Bình (Mã: LBSTORE2026)
     cursor.execute('''
         INSERT OR IGNORE INTO licenses (id, license_key, customer_name, expires_at, is_active)
-        VALUES (1, 'LBSTORE2026', 'Admin Văn Bình (Master Key)', '2027-12-31', 1)
+        VALUES (1, 'LBSTORE2026', 'Admin Văn Bình (Master Admin)', '2027-12-31', 1)
     ''')
     
     conn.commit()
@@ -62,13 +64,40 @@ def check_license(key):
     if row:
         c_name, expires_at, is_active = row
         if is_active == 1:
-            # Kiểm tra hạn sử dụng
             exp_date = datetime.strptime(expires_at, "%Y-%m-%d").date()
             if datetime.now().date() <= exp_date:
                 return True, f"✅ Kích hoạt thành công! Xin chào: {c_name} (Hạn đến: {expires_at})"
             else:
                 return False, "❌ Mã kích hoạt này đã hết hạn sử dụng. Vui lòng liên hệ gia hạn (100k/tháng)!"
     return False, "❌ Mã kích hoạt không hợp lệ hoặc không tồn tại!"
+
+def create_new_license(customer_name, months):
+    # Tự động sinh mã ngẫu nhiên dạng LB-XXXX-YYYY
+    random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    new_key = f"LB-{random_str}"
+    
+    # Tính ngày hết hạn (30 ngày * số tháng)
+    expires_date = (datetime.now() + timedelta(days=30 * months)).strftime("%Y-%m-%d")
+    
+    conn = sqlite3.connect('mamnon_rag.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO licenses (license_key, customer_name, expires_at, is_active) VALUES (?, ?, ?, 1)", 
+                       (new_key, customer_name, expires_date))
+        conn.commit()
+        conn.close()
+        return True, new_key, expires_date
+    except Exception as e:
+        conn.close()
+        return False, str(e), ""
+
+def get_all_licenses():
+    conn = sqlite3.connect('mamnon_rag.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, license_key, customer_name, expires_at, is_active FROM licenses ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
 def save_plan_to_db(title, content_json):
     conn = sqlite3.connect('mamnon_rag.db')
@@ -144,32 +173,39 @@ def export_docx(plan: LessonPlan, info: dict, custom_template=None):
 # --- CẤU HÌNH GIAO DIỆN STREAMLIT ---
 st.set_page_config(page_title="Phần Mềm Soạn Giáo Án Mầm Non Tự Động", layout="wide")
 
-# Kiểm tra trạng thái đăng nhập qua mã bản quyền trong session_state
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+if "is_admin" not in st.session_state:
+    st.session_state["is_admin"] = False
 
-# --- MÀN HÌNH KHÓA / NHẬP MÃ BẢN QUYỀN ---
+# --- MÀN HÌNH ĐĂNG NHẬP MÃ BẢN QUYỀN ---
 if not st.session_state["authenticated"]:
     st.title("🔐 Xác Thực Sử Dụng Phần Mềm Mầm Non")
-    st.markdown("Phần mềm hỗ trợ soạn giáo án chuẩn chuyên sâu. Vui lòng nhập **Mã Kích Hoạt Bản Quyền (100k/tháng)** để truy cập hệ thống.")
+    st.markdown("Vui lòng nhập **Mã Kích Hoạt Bản Quyền (100k/tháng)** để truy cập hệ thống.")
     
     col_l1, col_l2 = st.columns([2, 1])
     with col_l1:
-        input_key = st.text_input("Nhập Mã Kích Hoạt Của Bạn", type="password", placeholder="Nhập mã do admin cấp...")
+        input_key = st.text_input("Nhập Mã Kích Hoạt Của Bạn", type="password", placeholder="Nhập mã...")
         if st.button("🔓 Mở Khóa Sử Dụng", type="primary"):
-            valid, msg = check_license(input_key)
-            if valid:
+            if input_key == "LBSTORE2026":
                 st.session_state["authenticated"] = True
-                st.success(msg)
+                st.session_state["is_admin"] = True
+                st.success("👑 Đăng nhập quyền Admin thành công!")
                 st.rerun()
             else:
-                st.error(msg)
+                valid, msg = check_license(input_key)
+                if valid:
+                    st.session_state["authenticated"] = True
+                    st.session_state["is_admin"] = False
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
     with col_l2:
-        st.info("💡 **Gói Cước Thuê Thêm:**\n- Giá cước: **100.000 VNĐ / Tháng**\n- Liên hệ Zalo/Hotline Admin:\n  `0939729009` (LB store_Bình)\n- Chuyển khoản nhận mã ngay lập tức!")
-    
-    st.stop() # Dừng lại không cho hiển thị phần mềm bên dưới nếu chưa nhập đúng mã
+        st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo/Hotline Admin:\n  `0939729009` (LB store)\n- Chuyển khoản nhận mã ngay!")
+    st.stop()
 
-# --- GIAO DIỆN CHÍNH SAU KHI ĐÃ ĐƯỢC MỞ KHÓA ---
+# --- GIAO DIỆN CHÍNH SAU KHI ĐÃ MỞ KHÓA ---
 st.title("🧸 Phần Mềm Soạn Giáo Án Mầm Non Tự Động (Thanh Vân 2026)")
 st.markdown("Hỗ trợ soạn giáo án đa phương pháp, sáng tác thơ/đồng dao, gợi ý đồ chơi DIY và tóm tắt tin nhắn phụ huynh.")
 
@@ -181,14 +217,48 @@ with st.sidebar:
     st.divider()
     if st.button("🔒 Đăng Xuất / Khóa Lại"):
         st.session_state["authenticated"] = False
+        st.session_state["is_admin"] = False
         st.rerun()
         
     st.divider()
-    st.info("💡 **Tiện ích bổ sung cho cô giáo:**")
-    app_mode = st.radio("Chọn chức năng:", ["📝 Soạn Giáo Án Chuẩn", "📚 Kho Lịch Sử Giáo Án", "🎨 Sáng Tác Thơ & Đồng Dao", "✂️ Gợi Ý Đồ Dùng DIY", "💬 Tóm Tắt Tin Nhắn Zalo Phụ Huynh"])
+    st.info("💡 **Tính năng phần mềm:**")
+    
+    # Danh sách menu tùy thuộc vào tài khoản thường hay Admin
+    if st.session_state["is_admin"]:
+        app_mode = st.radio("Chọn chức năng:", ["👑 Quản Lý Khách Thuê (Admin)", "📝 Soạn Giáo Án Chuẩn", "📚 Kho Lịch Sử Giáo Án", "🎨 Sáng Tác Thơ & Đồng Dao", "✂️ Gợi Ý Đồ Dùng DIY", "💬 Tóm Tắt Tin Nhắn Zalo Phụ Huynh"])
+    else:
+        app_mode = st.radio("Chọn chức năng:", ["📝 Soạn Giáo Án Chuẩn", "📚 Kho Lịch Sử Giáo Án", "🎨 Sáng Tác Thơ & Đồng Dao", "✂️ Gợi Ý Đồ Dùng DIY", "💬 Tóm Tắt Tin Nhắn Zalo Phụ Huynh"])
+
+# --- TAB ADMIN: QUẢN LÝ KHÁCH THUÊ ---
+if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (Admin)":
+    st.subheader("👑 Khu Vực Quản Trị Viên - Cấp Mã Thuê Bao")
+    st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
+    
+    with st.form("admin_form"):
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
+        months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
+        submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
+        
+        if submitted:
+            if not c_name_input:
+                st.warning("Vui lòng nhập tên khách hàng!")
+            else:
+                success, key_or_err, exp_date = create_new_license(c_name_input, months_input)
+                if success:
+                    st.success(f"🎉 Đã tạo mã thành công cho **{c_name_input}**!")
+                    st.code(f"Mã kích hoạt: {key_or_err} (Hạn đến: {exp_date})", language="text")
+                    st.info("👉 Hãy copy mã trên gửi qua Zalo cho khách hàng!")
+                else:
+                    st.error(f"Lỗi: {key_or_err}")
+
+    st.divider("📋 Danh Sách Tất Cả Mã Đã Cấp")
+    licenses_list = get_all_licenses()
+    for l_id, l_key, l_name, l_exp, l_active in licenses_list:
+        status_text = "🟢 Đang hoạt động" if l_active == 1 else "🔴 Đã khóa"
+        st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # --- TAB 1: SOẠN GIÁO ÁN CHUẨN ---
-if app_mode == "📝 Soạn Giáo Án Chuẩn":
+elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     col1, col2 = st.columns(2)
     with col1:
         teacher_name = st.text_input("Họ và tên giáo viên", "Nguyễn Thị Thanh Vân")
@@ -236,12 +306,10 @@ if app_mode == "📝 Soạn Giáo Án Chuẩn":
                         "theme": theme, "domain": domain, "topic": topic, "method": method, "age": age_group
                     }
                     
-                    # Lưu tự động vào Database lịch sử
                     save_plan_to_db(topic, response.text)
 
                 st.success("🎉 Đã soạn giáo án thành công và tự động lưu vào kho lịch sử!")
                 
-                # Hiển thị kết quả trực quan
                 st.subheader(f"📖 {plan.title}")
                 st.markdown(f"**🎯 Mục đích yêu cầu:**")
                 for obj in plan.objectives:
@@ -295,7 +363,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
 # --- TAB 3: SÁNG TÁC THƠ & ĐỒNG DAO ---
 elif app_mode == "🎨 Sáng Tác Thơ & Đồng Dao":
     st.subheader("🎨 Sáng Tác Thơ, Câu Đố & Đồng Dao Mầm Non")
-    topic_poetry = st.text_input("Nhập chủ đề hoặc tên sự vật (VD: Củ cà rốt, Chú gà con, Đi vệ sinh sạch sẽ...)")
+    topic_poetry = st.text_input("Nhập chủ đề hoặc tên sự vật (VD: Củ cà rốt, Chú gà con...)")
     genre = st.selectbox("Thể loại cần sáng tác", ["Bài thơ ngắn (4-8 câu)", "Bài đồng dao vui nhộn", "Câu đố vui cho trẻ"])
     
     if st.button("✨ Sáng Tác Ngay", type="primary"):
@@ -312,14 +380,14 @@ elif app_mode == "🎨 Sáng Tác Thơ & Đồng Dao":
 # --- TAB 4: GỢI Ý ĐỒ DÙNG DIY ---
 elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
     st.subheader("✂️ Gợi Ý Làm Đồ Dùng Dạy Học Từ Vật Liệu Mở")
-    lesson_name = st.text_input("Nhập tên bài học hoặc kỹ năng cần làm đồ dùng (VD: Đếm số lượng trong phạm vi 5, Phân loại động vật nuôi...)")
+    lesson_name = st.text_input("Nhập tên bài học hoặc kỹ năng cần làm đồ dùng (VD: Đếm số lượng trong phạm vi 5...)")
     
     if st.button("🛠️ Gợi Ý Cách Làm", type="primary"):
         if not api_key:
             st.error("Vui lòng nhập API Key ở menu bên trái!")
         else:
             client = genai.Client(api_key=api_key)
-            prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton, vải vụn...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
+            prompt = f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ."
             with st.spinner("Đang lên ý tưởng chế tạo..."):
                 res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
                 st.success("Ý tưởng đồ dùng tự tạo:")
@@ -328,7 +396,7 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
 # --- TAB 5: TÓM TẮT TIN NHẮN ZALO PHỤ HUYNH ---
 elif app_mode == "💬 Tóm Tắt Tin Nhắn Zalo Phụ Hyuynh":
     st.subheader("💬 Tạo Tin Nhắn Tóm Tắt Gửi Nhóm Zalo Phụ Huynh")
-    summary_topic = st.text_input("Nội dung chính trong ngày/tuần (VD: Hôm nay các con học bài thơ 'Cục len', tập tô chữ o, ăn hết suất...)")
+    summary_topic = st.text_input("Nội dung chính trong ngày/tuần (VD: Hôm nay các con học bài thơ 'Cục len'...)")
     
     if st.button("💌 Soạn Tin Nhắn Gửi Phụ Huynh", type="primary"):
         if not api_key:
