@@ -235,7 +235,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
     st.markdown("Nhập thông tin khách hàng vừa chuyển khoản 100k để hệ thống tự sinh mã kích hoạt:")
     
     with st.form("admin_form"):
-        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Thảo - Mầm Non Hướng Dương)")
+        c_name_input = st.text_input("Tên khách hàng / Tên trường (VD: Cô Vân - Mầm Non Phước Thạnh)")
         months_input = st.selectbox("Thời hạn thuê", [1, 2, 3, 6, 12], format_func=lambda x: f"{x} Tháng ({x*100}k)")
         submitted = st.form_submit_button("✨ Tạo Mã Kích Hoạt Mới", type="primary")
         
