@@ -114,21 +114,21 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM GỌI AI THÔNG MINH (TỰ ĐỘNG CHUYỂN MODEL NẾU LỖI 503) ---
+# --- HÀM GỌI AI CHUẨN XÁC MODEL 2.5-FLASH ---
 def call_gemini_safely(client, prompt):
-    models_to_try = ['gemini-3.8-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
-    last_error = None
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
-            return response
-        except Exception as e:
-            last_error = e
-            continue
-    raise Exception(f"Không thể kết nối AI sau khi thử tất cả các model. Lỗi gốc: {last_error}")
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        return response
+    except Exception as e:
+        # Fallback tự động sang gemini-1.5-flash nếu cần
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt,
+        )
+        return response
 
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
@@ -427,8 +427,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
-                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non (Hệ thống tự động chọn luồng AI tối ưu)..."):
-                    # Gọi hàm thông minh tự động chuyển đổi model, không lo lỗi 503 hay 404
+                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
                     response = call_gemini_safely(client, prompt)
                     
                     st.session_state["generated_plan_text"] = response.text
