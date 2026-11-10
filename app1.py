@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import random
 import string
+import time
 
 # --- CẤU TRÚC DỮ LIỆU ĐẦU RA CHO AI (PYDANTIC) ---
 class LessonPlan(BaseModel):
@@ -114,16 +115,20 @@ def get_plan_by_id(plan_id):
     conn.close()
     return row
 
-# --- HÀM GỌI AI CHUẨN XÁC MODEL GEMINI 2.5 FLASH ---
+# --- HÀM GỌI AI CHỐT CỨNG GEMINI 3.8 FLASH CỦA GOOGLE ---
 def call_gemini_safely(client, prompt):
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=prompt,
         )
         return response
     except Exception as e:
-        raise Exception(f"Lỗi kết nối AI: {e}")
+        error_msg = str(e)
+        if "503" in error_msg or "UNAVAILABLE" in error_msg or "high demand" in error_msg.lower():
+            raise Exception("Máy chủ AI của Google đang có quá nhiều người sử dụng cùng lúc nên bị nghẽn mạng 1 chút. Cô đợi khoảng 5-10 giây rồi bấm nút TẠO BẢN ÁN lại nhé!")
+        else:
+            raise Exception(f"Lỗi kết nối AI: {error_msg}")
 
 # --- HÀM XUẤT FILE WORD TỪ TEXT ĐÃ CHỈNH SỬA ---
 def export_docx_from_text(text_content: str, info: dict, custom_template=None):
@@ -422,14 +427,14 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 
                 Yêu cầu trình bày rõ ràng các phần chuẩn sư phạm mầm non: Mục đích yêu cầu (đưa đúng các mã MT vào nếu có), Chuẩn bị (đồ dùng của cô và trẻ), Cách tiến hành chi tiết từng bước (Hoạt động của cô và Hoạt động của trẻ), Đánh giá sau giờ dạy (tự động biên soạn nội dung nhận xét bám sát đề tài). Phù hợp tuyệt đối với chế độ {st.session_state['soan_mode_val']} và định dạng {st.session_state['display_fmt_val']}.
                 """
-                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non..."):
+                with st.spinner("AI đang phân tích và biên soạn giáo án chuẩn mầm non (Gemini 3.8 Flash)..."):
                     response = call_gemini_safely(client, prompt)
                     
                     st.session_state["generated_plan_text"] = response.text
                     st.session_state["plan_info"] = {
                         "school": school_name, "teacher": teacher_name, "class_name": class_name,
                         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-                        "route_type": route_type, "topic": topic, "method": "Gemini 2.5 Flash", "age": age_group, "extras": extras,
+                        "route_type": route_type, "topic": topic, "method": "Gemini 3.8 Flash", "age": age_group, "extras": extras,
                         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
                         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment
                     }
@@ -437,7 +442,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     save_plan_to_db(topic, response.text)
                 st.success("🎉 Đã soạn giáo án thành công! Cô có thể xem và chỉnh sửa trực tiếp bên dưới.")
             except Exception as e:
-                st.error(f"Đã xảy ra lỗi khi gọi AI: {e}")
+                st.error(f"⚠️ Ối! Có trục trặc xíu: {e}")
 
     if "generated_plan_text" in st.session_state:
         st.divider()
@@ -460,7 +465,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 use_container_width=True
             )
 
-# --- TAB 2: KẾ HOẠCH & SỔ CHỦ ĐỀ ---
+# --- CÁC TAB CÒN LẠI (SỬ DỤNG CHUNG HÀM GỌI AI THÔNG MINH) ---
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     st.subheader("🗓️ Lập Kế Hoạch Giáo Dục Theo Chủ Đề & Tháng")
     theme_input = st.text_input("Nhập tên Chủ Đề Lớn (VD: Thế giới thực vật, Giao thông, Tết và mùa xuân...)")
@@ -472,11 +477,13 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
         else:
             client = genai.Client(api_key=api_key)
             with st.spinner("Đang lập kế hoạch chủ đề..."):
-                res = call_gemini_safely(client, f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng.")
-                st.success("Đã hoàn thành kế hoạch chủ đề cho cô:")
-                st.markdown(res.text, unsafe_allow_html=True)
+                try:
+                    res = call_gemini_safely(client, f"Lập kế hoạch giáo dục chi tiết theo chủ đề '{theme_input}' cho trẻ lứa tuổi {age_plan}, bao gồm: mục tiêu phát triển các lĩnh vực, mạng nội dung, mạng hoạt động và gợi ý phân bổ các góc chơi trong tuần. Trình bày bài bản, rõ ràng.")
+                    st.success("Đã hoàn thành kế hoạch chủ đề cho cô:")
+                    st.markdown(res.text, unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"⚠️ {e}")
 
-# --- TAB 3: TRÒ CHƠI & ĐỐ VUI ---
 elif app_mode == "🎯 Trò Chơi & Đố Vui":
     st.subheader("🎯 Sáng Tác Trò Chơi, Câu Đố & Bài Thơ Mầm Non")
     topic_game = st.text_input("Nhập chủ đề hoặc sự vật (VD: Củ cà rốt, An toàn giao thông, Đếm đến 5...)")
@@ -488,11 +495,13 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
         else:
             client = genai.Client(api_key=api_key)
             with st.spinner("Đang sáng tác nội dung..."):
-                res = call_gemini_safely(client, f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi.")
-                st.success("Đã hoàn thành tác phẩm cho cô:")
-                st.markdown(res.text, unsafe_allow_html=True)
+                try:
+                    res = call_gemini_safely(client, f"Hãy sáng tác hoặc thiết kế một {genre} dành riêng cho trẻ mầm non với chủ đề: {topic_game}. Ngôn ngữ trong trẻo, vui tươi. Nếu là trò chơi cần nêu rõ mục đích, luật chơi và cách chơi.")
+                    st.success("Đã hoàn thành tác phẩm cho cô:")
+                    st.markdown(res.text, unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"⚠️ {e}")
 
-# --- TAB 4: SỔ LIÊN LẠC & ZALO ---
 elif app_mode == "💬 Sổ Liên Lạc & Zalo":
     st.subheader("💬 Trợ Lý Viết Sổ Liên Lạc & Tin Nhắn Zalo Phụ Huynh")
     task_type = st.radio("Chọn loại nội dung cần viết:", ["Tin nhắn tổng kết ngày/tuần gửi nhóm Zalo", "Viết lời nhận xét sự tiến bộ cho từng bé"])
@@ -505,9 +514,12 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
             else:
                 client = genai.Client(api_key=api_key)
                 with st.spinner("Đang soạn tin..."):
-                    res = call_gemini_safely(client, f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối.")
-                    st.success("Mẫu tin nhắn Zalo:")
-                    st.markdown(res.text, unsafe_allow_html=True)
+                    try:
+                        res = call_gemini_safely(client, f"Soạn một tin nhắn Zalo thân thiện, chuyên nghiệp từ giáo viên mầm non gửi phụ huynh tóm tắt các hoạt động: {summary_topic}. Kèm lời dặn dò nhẹ nhàng buổi tối.")
+                        st.success("Mẫu tin nhắn Zalo:")
+                        st.markdown(res.text, unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"⚠️ {e}")
     else:
         child_info = st.text_input("Nhập vài từ khóa về tình hình của bé (VD: Bé Bảo An: ngoan, ăn giỏi, tích cực phát biểu nhưng còn rụt rè giờ thể chất)")
         if st.button("✍️ Viết Lời Nhận Xét", type="primary"):
@@ -516,11 +528,13 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
             else:
                 client = genai.Client(api_key=api_key)
                 with st.spinner("Đang viết lời nhận xét..."):
-                    res = call_gemini_safely(client, f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}.")
-                    st.success("Lời nhận xét mẫu cho cô:")
-                    st.markdown(res.text, unsafe_allow_html=True)
+                    try:
+                        res = call_gemini_safely(client, f"Viết một đoạn nhận xét cuối tuần khéo léo, tình cảm, mang tính khích lệ cao dành cho học sinh mầm non dựa trên thông tin: {child_info}.")
+                        st.success("Lời nhận xét mẫu cho cô:")
+                        st.markdown(res.text, unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"⚠️ {e}")
 
-# --- TAB 5: GỢI Ý ĐỒ DÙNG DIY ---
 elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
     st.subheader("✂️ Gợi Ý Làm Đồ Dùng Dạy Học Từ Vật Liệu Mở")
     lesson_name = st.text_input("Nhập tên bài học hoặc kỹ năng cần làm đồ dùng (VD: Đếm số lượng trong phạm vi 5...)")
@@ -531,11 +545,13 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
         else:
             client = genai.Client(api_key=api_key)
             with st.spinner("Đang lên ý tưởng chế tạo..."):
-                res = call_gemini_safely(client, f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ.")
-                st.success("Ý tưởng đồ dùng tự tạo:")
-                st.markdown(res.text, unsafe_allow_html=True)
+                try:
+                    res = call_gemini_safely(client, f"Gợi ý cho giáo viên mầm non cách tận dụng các nguyên vật liệu phế liệu/vật liệu mở (chai nhựa, ống hút, bìa carton...) để làm đồ dùng đồ chơi tự tạo phục vụ cho bài học: {lesson_name}. Liệt kê nguyên liệu và các bước làm ngắn gọn, an toàn cho trẻ.")
+                    st.success("Ý tưởng đồ dùng tự tạo:")
+                    st.markdown(res.text, unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"⚠️ {e}")
 
-# --- TAB 6: KHO LỊCH SỬ GIÁO ÁN ---
 elif app_mode == "📚 Kho Lịch Sử Giáo Án":
     st.subheader("📚 Kho Lưu Trữ Giáo Án Đã Soạn")
     plans = get_all_saved_plans()
@@ -550,7 +566,7 @@ elif app_mode == "📚 Kho Lịch Sử Giáo Án":
                     row = get_plan_by_id(p_id)
                     if row:
                         title_db, content_db = row
-                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Gemini 2.5 Flash", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
+                        info_dummy = {"school": "Mầm Non Phước Thạnh", "teacher": "Nguyễn Thị Thanh Vân", "class_name": "Lớp Chồi 1", "theme": "Chung", "domain": "Nhận thức", "sub_category": "Toán", "activity_type": "Hoạt động học", "route_type": "Khám phá", "topic": title_db, "method": "Gemini 3.8 Flash", "age": "4-5 tuổi", "extras": [], "mode": "Giáo án thường", "display_format": "1 Cột chuẩn", "custom_goals": "", "custom_ideas": "", "auto_assessment": True}
                         f_path = export_docx_from_text(content_db, info_dummy)
                         with open(f_path, "rb") as f_dl:
                             cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
