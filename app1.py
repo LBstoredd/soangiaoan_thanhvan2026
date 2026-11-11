@@ -348,33 +348,48 @@ def generate_instant_diy(lesson: str) -> str:
     return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
 
 # ==========================================
-# TRÁI TIM CỦA AI: NÂNG CẤP ĐỂ HIỂN THỊ LỖI RÕ RÀNG
+# TRÁI TIM CỦA AI: VÒNG LẶP CHỐNG LỖI API KEY THÔNG MINH
 # ==========================================
 def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=None):
     error_msg = None
     text_out = ""
+    
     def _call_model():
-        res = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt,
-        )
-        return res.text
+        # Danh sách quét tự động để tránh lỗi 404 nếu API Key không hỗ trợ model cụ thể
+        models_to_try = ['gemini-2.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        last_err = None
+        for m_name in models_to_try:
+            try:
+                res = client.models.generate_content(
+                    model=m_name,
+                    contents=prompt,
+                )
+                if res.text:
+                    return res.text
+            except Exception as e:
+                last_err = e
+                continue
+        if last_err:
+            raise last_err
+        return ""
 
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        text_out = future.result(timeout=45) 
+        # Tăng thời gian chờ lên 60 giây để đảm bảo AI có đủ thời gian gõ giáo án 3 trang
+        text_out = future.result(timeout=60) 
     except FuturesTimeoutError:
-        error_msg = "AI của Google phản hồi quá chậm (vượt quá 45 giây)."
+        error_msg = "AI của Google phản hồi quá chậm (vượt quá 60 giây)."
     except Exception as e:
         error_msg = f"Lỗi API Key hoặc Kết nối: {str(e)}"
     finally:
         executor.shutdown(wait=False)
 
+    # Nếu AI viết thành công thì trả về
     if text_out and text_out.strip():
         return clean_markdown_text(text_out), None
 
-    # Trả về bản dự phòng kèm thông báo lỗi để hiển thị lên màn hình
+    # Nếu lỗi, trả về bản dự phòng kèm THÔNG BÁO LỖI để người dùng biết mà đổi Key
     if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data), error_msg
     elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data), error_msg
     elif fallback_type == "month": return generate_instant_month_plan(fallback_data), error_msg
@@ -458,7 +473,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN
+# TAB 1: SOẠN GIÁO ÁN CHUẨN (ÉP AI VIẾT CỰC KỲ DÀI VÀ HẤP DẪN)
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -536,25 +551,26 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 8. MỤC TIÊU CẦN ĐẠT (Tùy chọn):")
     custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ biết cách cầm bút vẽ lọ hoa cân đối, tô màu khéo léo (MT15).")
     st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
-    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, dẫn dắt bằng một tình huống thú vị...")
+    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, kể câu chuyện dẫn dắt...")
     st.markdown("### 10. ĐÁNH GIÁ CUỐI NGÀY:")
     auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn", value=True)
     
     plan_info_dict = {
         "school": school_name, "teacher": teacher_name, "class_name": class_name,
         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 1.5 Flash", "age": age_group, "extras": extras,
+        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Tự động Model Thông minh", "age": age_group, "extras": extras,
         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment,
         "doc_title": "GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG HỌC"
     }
 
     if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & SÁNG TẠO (Vui lòng đợi ~20 giây)..."):
+        with st.spinner("⚡ Đang kết nối AI biên soạn kịch bản giáo án SIÊU CHI TIẾT & SÁNG TẠO (AI đang suy nghĩ, vui lòng đợi ~15-20 giây)..."):
             if api_key:
+                client = genai.Client(api_key=api_key)
                 art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
                 
-                # PROMPT SIÊU CHI TIẾT
+                # PROMPT SIÊU CHI TIẾT: ÉP AI VIẾT THẬT DÀI, CÓ LỜI THOẠI CÔ VÀ TRẺ
                 prompt = f"""
                 Bạn là một Chuyên gia Giáo dục Mầm non xuất sắc. Hãy soạn một GIÁO ÁN MẦM NON CHUẨN BỘ GD&ĐT với yêu cầu BẮT BUỘC SAU ĐÂY:
                 - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề: {theme} | Lĩnh vực: {domain} ({sub_category})
@@ -566,7 +582,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 - Ý tưởng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
                 
                 YÊU CẦU LÕI (RẤT QUAN TRỌNG): 
-                1. Bài soạn CỰC KỲ DÀI VÀ CHI TIẾT, không viết chung chung, sơ lược.
+                1. Bài soạn CỰC KỲ DÀI VÀ CHI TIẾT, không viết chung chung, sơ lược. Ít nhất 1000 từ.
                 2. Phần TỔ CHỨC HOẠT ĐỘNG: Bắt buộc viết dưới dạng KỊCH BẢN TƯƠNG TÁC. Ghi RÕ RÀNG từng CÂU NÓI, LỜI DẪN DẮT, CÂU HỎI GỢI MỞ HẤP DẪN của Cô (Cô nói: "...") và LỜI ĐÁP CỦA TRẺ (Trẻ đáp: "...").
                 3. Thiết kế tình huống khởi động lôi cuốn, trò chơi thực hành phong phú, kích thích tư duy.
                 
@@ -579,13 +595,15 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 - Trạng thái cảm xúc, thái độ: ...
                 - Kiến thức, kỹ năng: ...)
                 
-                Tuyệt đối KHÔNG sử dụng ký tự ### hay **.
+                Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc (1, 2, 3).
                 """
-                client = genai.Client(api_key=api_key)
                 result_text, err = generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=plan_info_dict)
                 
-                if err: # XỬ LÝ LỖI API KEY CỰC KỲ RÕ RÀNG
+                if err:
+                    # HIỂN THỊ CẢNH BÁO LỖI NẾU API KEY CỦA NGƯỜI DÙNG BỊ LỖI
                     st.error(f"⚠️ **{err}**\n\n👉 Do API Key bị lỗi, hệ thống phải tự động dùng 'Bản giáo án dự phòng rút gọn'. Anh hãy vào Google AI Studio tạo lại API Key mới và dán vào thanh bên trái nhé!")
+                else:
+                    st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
             else:
                 result_text, err = generate_instant_pedagogical_plan(plan_info_dict), None
                 st.warning("⚠️ Báo động: Anh chưa nhập API Key! Hệ thống đang hiển thị 'Bản giáo án dự phòng rút gọn'. Anh hãy nhập API Key ở thanh bên trái để tạo giáo án siêu chi tiết nhé!")
@@ -593,7 +611,6 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             st.session_state["generated_plan_text"] = result_text
             st.session_state["plan_info"] = plan_info_dict
             save_plan_to_db(topic, result_text)
-        st.success("🎉 Đã xử lý xong!")
 
     if "generated_plan_text" in st.session_state:
         st.divider()
@@ -645,7 +662,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         dg_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=3)
         
     if st.button("✨ Soạn Giáo Án Năng Lực Số AI", type="primary"):
-        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 20 giây)..."):
+        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 15-20 giây)..."):
             digital_info_dict = {"topic": dg_topic, "domain": dg_domain, "age": dg_age}
             if api_key:
                 client = genai.Client(api_key=api_key)
@@ -658,6 +675,8 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
                 res, err = generate_fast_ai_content(client, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
                 if err:
                     st.error(f"⚠️ **{err}**\n\n👉 Do API Key bị lỗi, hệ thống phải tự động dùng 'Bản giáo án dự phòng rút gọn'. Anh hãy vào Google AI Studio tạo lại API Key mới và dán vào thanh bên trái nhé!")
+                else:
+                    st.success("🎉 Đã hoàn thành Giáo án Tích hợp Năng lực số!")
             else:
                 res, err = generate_instant_digital_plan(digital_info_dict), None
                 st.warning("⚠️ Anh chưa nhập API Key. Đang hiển thị bản dự phòng.")
@@ -668,7 +687,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         d_font_size = st.session_state.get("d_font_size_slider", 14)
         render_copy_and_print_buttons(st.session_state["saved_digital_plan"], f"Giáo Án Năng Lực Số", d_font_size, "tab_digital")
         d_font_size = st.slider("🔤 Kích thước chữ (pt):", 12, 24, d_font_size, 1, key="d_font_size_slider")
-        st.markdown(f'<div style="background-color: #ffffff; font-family: \'Times New Roman\', Times, serif; font-size: {d_font_size}pt; line-height: 1.5; padding: 35px 45px; border-radius: 12px; border: 1.5px solid #B2E5D6; box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08); text-align: justify;">{format_text_to_standard_html(st.session_state["saved_digital_plan"], d_font_size)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background-color: #ffffff; color: #000000; font-family: \'Times New Roman\', Times, serif; font-size: {d_font_size}pt; line-height: 1.5; padding: 35px 45px; border-radius: 12px; border: 1.5px solid #B2E5D6; box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08); text-align: justify;">{format_text_to_standard_html(st.session_state["saved_digital_plan"], d_font_size)}</div>', unsafe_allow_html=True)
 
 # =========================================================================
 # TAB KẾ HOẠCH & SỔ CHỦ ĐỀ
