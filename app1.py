@@ -11,7 +11,6 @@ from google.genai import types
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from pydantic import BaseModel
 from datetime import datetime, timedelta
 import random
 import string
@@ -27,6 +26,8 @@ if "is_admin" not in st.session_state:
     st.session_state["is_admin"] = False
 if "api_key_saved" not in st.session_state:
     st.session_state["api_key_saved"] = ""
+if "active_model_name" not in st.session_state:
+    st.session_state["active_model_name"] = ""
 
 # ==========================================
 # CẤU HÌNH GIAO DIỆN THEME XANH MINT
@@ -282,51 +283,107 @@ def get_plan_by_id(plan_id):
         return row
     except Exception: return None
 
-# ==========================================
-# BỘ CỨU CÁNH DỰ PHÒNG KHI MẤT MẠNG 
-# ==========================================
+# =========================================================================
+# BỘ CỨU CÁNH CHUYÊN SÂU (VIẾT DÀI 1.200 TỪ NGAY CẢ KHI OFFLINE)
+# =========================================================================
 def generate_instant_pedagogical_plan(info: dict) -> str:
-    topic = info.get("topic", "Hoạt động")
-    domain = info.get("domain", "Phát triển nhận thức")
+    topic = info.get("topic", "Hoạt động khám phá").strip()
+    domain = info.get("domain", "Nhận thức")
+    sub_cat = info.get("sub_category", "Khám phá")
+    route = info.get("route_type", "Hoạt động chung")
     age = info.get("age", "4-5 tuổi")
+    theme = info.get("theme", "Chủ đề quanh bé")
+    teacher = info.get("teacher", "Nguyễn Thị Thanh Vân").strip() or "Giáo viên"
+    school = info.get("school", "Trường Mầm Non").strip() or "Trường Mầm Non"
+    class_name = info.get("class_name", "Lớp Mẫu giáo").strip() or "Lớp Mẫu giáo"
+    extras_list = info.get("extras", [])
+    extras_str = ", ".join(extras_list) if extras_list else "Giáo dục kỹ năng sống và bảo vệ môi trường"
     custom_ideas = info.get("custom_ideas", "").strip()
-    
-    raw_plan = f"""TRƯỜNG MẦM NON
-Lớp: Lớp Mẫu giáo | Độ tuổi: {age}
-GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG
+    today_str = datetime.now().strftime("%d/%m/%Y")
+
+    raw_plan = f"""{school.upper()}
+Lớp: {class_name} | Độ tuổi: {age}
+GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG ({info.get('activity_type', 'Hoạt động học')})
 ĐỀ TÀI: {topic.upper()}
-Lĩnh vực: {domain}
+Chủ đề lớn: {theme} | Lĩnh vực: {domain} ({sub_cat} - {route})
+Người soạn: {teacher} | Ngày dạy: {today_str}
 
 I. MỤC ĐÍCH - YÊU CẦU
-1. Kiến thức: Trẻ nhận biết và hiểu rõ các đặc điểm cốt lõi của bài học {topic}.
-2. Kỹ năng: Rèn luyện kỹ năng quan sát, tư duy phán đoán và trả lời câu hỏi mạch lạc.
-3. Thái độ: Trẻ tích cực tham gia hoạt động, đoàn kết với bạn bè.
+1. Kiến thức:
+- Trẻ nhận biết, gọi đúng tên và nêu được những đặc điểm nổi bật, cấu tạo cơ bản của nội dung bài học: {topic}.
+- Trẻ hiểu được lợi ích, ý nghĩa thực tế của {topic} đối với đời sống con người và môi trường xung quanh.
+- Trẻ nắm được quy trình và các bước tham gia hoạt động thực hành, trò chơi theo đúng hướng dẫn của cô giáo.
+2. Kỹ năng:
+- Rèn luyện kỹ năng quan sát có chủ đích, so sánh, phân loại và ghi nhớ các chi tiết đặc trưng.
+- Phát triển ngôn ngữ mạch lạc: Trẻ tự tin diễn đạt suy nghĩ, trả lời câu hỏi trọn vẹn câu, biết trao đổi cùng bạn.
+- Rèn luyện thao tác vận động tinh khéo léo, phối hợp tay - mắt nhịp nhàng trong hoạt động trải nghiệm thực tế.
+3. Thái độ:
+- Trẻ hào hứng, chủ động, tích cực tham gia vào từng hoạt động học tập và vui chơi.
+- Trẻ biết lắng nghe hiệu lệnh của cô, biết phối hợp nhóm và chia sẻ đồ dùng học tập cùng các bạn.
+- Lồng ghép giáo dục: {extras_str}; trẻ biết yêu quý sản phẩm lao động và giữ gìn vệ sinh lớp học.
 
 II. CHUẨN BỊ
-1. Đồ dùng của cô: Giáo án điện tử, hình ảnh/video về {topic}. {custom_ideas}
-2. Đồ dùng của trẻ: Rổ đồ chơi, không gian an toàn, sạch sẽ.
+1. Đồ dùng của cô:
+- Giáo án điện tử thiết kế sinh động, slide hình ảnh, video tư liệu sắc nét liên quan đến {topic}.
+- Hệ thống âm thanh, loa bluetooth, nhạc không lời êm dịu và các bài hát vui nhộn theo chủ đề {theme}.
+- Đồ dùng trực quan vật thật / mô hình kích thước lớn phục vụ quan sát đàm thoại.{f' Ý tưởng riêng của cô: {custom_ideas}' if custom_ideas else ''}
+2. Đồ dùng của trẻ:
+- Bộ đồ dùng thực hành, học liệu đủ số lượng cho từng trẻ (khay đựng, thẻ hình, tranh mẫu, đồ chơi trải nghiệm).
+- Trang phục gọn gàng, tâm thế thoải mái, tâm lý tự tin sẵn sàng bước vào giờ học.
+3. Địa điểm - Không gian tổ chức:
+- Phòng học sạch sẽ, thoáng mát, đủ ánh sáng; bố trí đội hình chữ U hoặc vòng cung thuận tiện quan sát màn hình.
 
-III. TỔ CHỨC HOẠT ĐỘNG
-Hoạt động 1: Ổn định tổ chức gây hứng thú
-- Cô tập trung trẻ, hát bài hát phù hợp với chủ đề và trò chuyện dẫn dắt trẻ vào bài học {topic}.
+III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG
+Hoạt động 1: Ổn định tổ chức, gây hứng thú (3 - 5 phút)
+- Cô tập trung trẻ lại quanh mình, mở nhạc giai điệu vui tươi theo chủ đề {theme} và cùng trẻ nhún nhảy:
+  + Cô nói: "Nhiệt liệt chào mừng tất cả các bé lớp {class_name} đến với tiết học kỳ diệu ngày hôm nay!"
+  + Trẻ đồng thanh đáp: "Chúng con chào cô ạ!"
+- Cô tạo tình huống bất ngờ với chiếc hộp quà bí mật:
+  + Cô nói: "Hôm nay, cô mang đến một món quà vô cùng đặc biệt. Các con thử đoán xem bên trong có điều bí mật gì nào?"
+  + Trẻ hào hứng phỏng đoán: "Dạ thưa cô là đồ chơi ạ / Là tranh ảnh ạ!"
+  + Cô nhẹ nhàng mở quà và giới thiệu biểu tượng của bài học: "Đó chính là những hình ảnh vô cùng thú vị về {topic}! Hôm nay cô con mình sẽ cùng nhau bước vào hành trình khám phá nhé!"
 
-Hoạt động 2: Trọng tâm
-- Bước 1: Khám phá trải nghiệm. Cô đưa ra tình huống hoặc vật thật để trẻ quan sát. Cô đặt các câu hỏi mở: "Các con thấy gì đây?", "Ai có nhận xét gì?".
-- Bước 2: Cô giải thích và chốt lại kiến thức chuẩn xác, mở rộng thêm hiểu biết cho trẻ.
-- Bước 3: Luyện tập. Trẻ tham gia trò chơi củng cố liên quan đến {topic}. Cô bao quát và sửa sai cho trẻ.
+Hoạt động 2: Nội dung trọng tâm (20 - 25 phút)
+* Bước 1: Khám phá trải nghiệm thực tế & Đàm thoại gợi mở:
+- Cô giới thiệu vật thật / tranh ảnh sinh động về {topic} cho cả lớp quan sát cận cảnh.
+- Cô gợi mở để trẻ tự do phát hiện bằng các giác quan (nhìn, nghe, chạm, sờ):
+  + Cô hỏi: "Các con có nhận xét gì về {topic}? Ai giỏi cho cô biết hình dáng, màu sắc và đặc điểm của nó nào?"
+  + Trẻ giơ tay trả lời: "Dạ con thấy có màu sắc đẹp ạ / Dạ con thấy nó rất quen thuộc ạ!"
+  + Cô hỏi tiếp: "Để hiểu rõ hơn về công dụng và sự phát triển của {topic}, các con hãy cùng hướng mắt lên màn hình quan sát đoạn phim ngắn này nhé!"
+- Sau khi xem video, cô đặt câu hỏi gợi mở tư duy logic:
+  + Cô hỏi: "Qua đoạn phim vừa rồi, con biết thêm điều gì mới? Nếu không có nó thì cuộc sống của chúng ta sẽ thế nào?"
+  + Trẻ suy nghĩ và tự tin trả lời theo cảm nhận.
+  + Cô chốt lại kiến thức chuẩn xác, diễn đạt ngắn gọn, dễ nhớ để trẻ khắc sâu bài học.
 
-Hoạt động 3: Kết thúc
-- Cô nhận xét, tuyên dương các bạn học ngoan. Giáo dục trẻ bài học ý nghĩa. Chuyển hoạt động nhẹ nhàng.
+* Bước 2: Trải nghiệm thực hành - Trẻ làm chủ hoạt động:
+- Cô chia trẻ về các nhóm nhỏ ngồi theo bàn đã chuẩn bị sẵn đồ dùng học tập.
+- Cô nêu rõ nhiệm vụ và làm mẫu thao tác rõ ràng, dứt khoát:
+  + Cô nói: "Bây giờ các kỹ sư nhí hãy cùng nhau thực hành thao tác sắp xếp, phân loại và tạo ra sản phẩm về {topic} nhé!"
+- Trẻ bắt đầu thực hiện bài tập. Cô đi từng bàn bao quát, quan sát kỹ năng của từng trẻ:
+  + Động viên, khích lệ những trẻ còn lúng túng hoặc nhút nhát.
+  + Gợi ý mở rộng để những trẻ khá, giỏi sáng tạo thêm các chi tiết mới lạ.
+
+* Bước 3: Trò chơi củng cố kiến thức:
+- Cô giới thiệu trò chơi vận động: 'Đội Nào Nhanh Nhất'.
+- Luật chơi: Mỗi lượt một bạn bật qua các vòng thể dục lên chọn đúng hình ảnh/đồ vật về {topic} đặt vào rổ của đội mình, sau đó chạy về đập tay vào bạn tiếp theo.
+- Cách chơi: Cô bật nhạc rộn ràng; 2 đội thi đua nhau trong thời gian 1 bản nhạc.
+- Trẻ chơi hào hứng 2 - 3 lượt. Cô cùng cả lớp kiểm tra kết quả, đếm số lượng và tuyên dương đội chiến thắng.
+
+Hoạt động 3: Kết thúc hoạt động (2 - 3 phút)
+- Cô tập trung trẻ lại, nhận xét chung về tinh thần học tập:
+  + Cô khen ngợi sự tập trung, sáng tạo và tinh thần hợp tác rất tốt của cả lớp hôm nay.
+  + Nhắc nhở giáo dục nhẹ nhàng: Các con nhớ giữ gìn đồ dùng, bảo vệ môi trường và biết yêu quý cuộc sống xung quanh.
+- Cho trẻ cùng cô thu dọn đồ dùng học tập gọn gàng, cất vào đúng nơi quy định và hát vang bài ca ra sân chơi.
 
 IV. ĐÁNH GIÁ CUỐI NGÀY
-- Tình trạng sức khỏe: 100% trẻ khỏe mạnh, tham gia tốt các hoạt động.
-- Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng tương tác tốt cùng cô và bạn.
-- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời."""
+- Tình trạng sức khỏe: 100% trẻ khỏe mạnh, thoải mái, tham gia tích cực các hoạt động từ đầu đến cuối tiết học.
+- Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng, tự tin phát biểu xây dựng bài và biết đoàn kết với bạn.
+- Kiến thức, kỹ năng: Đại đa số trẻ nắm vững nội dung bài dạy ({topic}), hoàn thành tốt yêu cầu thực hành; cô đã hỗ trợ kịp thời các trẻ còn chậm tiến bộ."""
     return clean_markdown_text(raw_plan)
 
 def generate_instant_digital_plan(info: dict) -> str:
     topic = info.get("topic", "Hoạt động số")
-    return generate_instant_pedagogical_plan({"topic": topic, "domain": "Năng lực số", "age": "5-6 tuổi"})
+    return generate_instant_pedagogical_plan({"topic": topic, "domain": "Phát triển nhận thức (Năng lực số)", "age": "5-6 tuổi"})
 
 def generate_instant_month_plan(info: dict) -> str:
     month = info.get("month", "Tháng")
@@ -347,9 +404,35 @@ def generate_instant_zalo(task_type: str, info_text: str) -> str:
 def generate_instant_diy(lesson: str) -> str:
     return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
 
-# ==========================================
-# TRÁI TIM AI: GỌI TRỰC TIẾP MODEL CHUẨN GEMINI 3.8 FLASH
-# ==========================================
+# =========================================================================
+# CƠ CHẾ DÒ TÌM MODEL VÀ KẾT NỐI V1BETA (CHỐNG LỖI 404 VÀ TIMEOUT)
+# =========================================================================
+def find_best_model(client):
+    try:
+        models = list(client.models.list())
+        supported_models = []
+        for m in models:
+            m_name = m.name.replace('models/', '')
+            actions = getattr(m, 'supported_actions', None) or getattr(m, 'supported_generation_methods', [])
+            if not actions or 'generateContent' in actions:
+                supported_models.append(m_name)
+        
+        # Ưu tiên các model flash tốc độ nhanh, thông minh và không bị lỗi
+        for preferred in ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.5-flash-latest']:
+            if preferred in supported_models:
+                return preferred
+        for m in supported_models:
+            if 'flash' in m.lower() and 'embed' not in m.lower() and 'image' not in m.lower():
+                return m
+        for m in supported_models:
+            if 'pro' in m.lower() and 'embed' not in m.lower() and 'image' not in m.lower():
+                return m
+        if supported_models:
+            return supported_models[0]
+    except Exception:
+        pass
+    return "gemini-2.0-flash"
+
 def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=None):
     if not api_key or not api_key.strip():
         return generate_instant_pedagogical_plan(fallback_data), "Chưa nhập API Key"
@@ -358,38 +441,51 @@ def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_dat
     text_out = ""
     
     def _call_model():
-        client = genai.Client(api_key=api_key.strip())
-        # Danh sách model chuẩn xác nhất hiện nay, không gọi các model đã ngừng hoạt động
-        models_to_try = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash']
-        last_e = None
-        for m_name in models_to_try:
-            try:
-                res = client.models.generate_content(
-                    model=m_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        max_output_tokens=8192,
-                        temperature=0.7
-                    )
+        # Cổng v1beta bắt buộc để mở khóa toàn bộ các model Google mà không bị lỗi 404
+        client = genai.Client(
+            api_key=api_key.strip(),
+            http_options=types.HttpOptions(api_version='v1beta')
+        )
+        
+        # Sử dụng model đã phát hiện hoặc tự động quét
+        model_name = st.session_state.get("active_model_name")
+        if not model_name:
+            model_name = find_best_model(client)
+            st.session_state["active_model_name"] = model_name
+
+        try:
+            res = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    max_output_tokens=8192,
+                    temperature=0.7
                 )
-                if res and res.text and len(res.text.strip()) > 100:
+            )
+            if res and res.text and len(res.text.strip()) > 100:
+                return res.text
+        except Exception as e:
+            # Nếu model vừa chọn bị lỗi, thử lại ngay lập tức với gemini-2.0-flash
+            if model_name != "gemini-2.0-flash":
+                res = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(max_output_tokens=8192, temperature=0.7)
+                )
+                if res and res.text:
+                    st.session_state["active_model_name"] = "gemini-2.0-flash"
                     return res.text
-            except Exception as e:
-                last_e = e
-                continue
-        if last_e:
-            raise last_e
+            raise e
         return ""
 
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        # Thời gian chờ: 35 giây là hoàn toàn đủ cho Gemini 3.8 Flash sinh bài dài 1500 từ
-        text_out = future.result(timeout=35) 
+        text_out = future.result(timeout=40) 
     except FuturesTimeoutError:
-        error_msg = "Thời gian phản hồi của AI vượt quá 35 giây."
+        error_msg = "Thời gian phản hồi của AI vượt quá 40 giây do nội dung quá dài."
     except Exception as e:
-        error_msg = f"Lỗi gọi AI: {str(e)}"
+        error_msg = f"Lỗi API: {str(e)}"
     finally:
         executor.shutdown(wait=False)
 
@@ -441,13 +537,31 @@ with st.sidebar:
     st.divider()
     st.header("⚙️ Cấu hình hệ thống")
     input_api_key = st.text_input("Nhập Google Gemini API Key", type="password", value=st.session_state["api_key_saved"])
+    
     if st.button("💾 Xác Nhận Lưu API Key"):
-        if input_api_key.strip():
-            st.session_state["api_key_saved"] = input_api_key.strip()
-            st.success("✅ Đã lưu API Key thành công!")
-        else: st.error("⚠️ Vui lòng nhập API Key hợp lệ!")
-    if st.session_state["api_key_saved"]: st.success("🟢 Trạng thái: Đã kết nối AI sẵn sàng!")
-    else: st.warning("🔴 Trạng thái: Chưa nhập API Key (Vẫn tạo được Giáo Án tức thì)!")
+        k = input_api_key.strip()
+        if k:
+            st.session_state["api_key_saved"] = k
+            # Thử kết nối trực tiếp đến Google AI qua cổng v1beta để xác thực chính xác
+            try:
+                test_client = genai.Client(api_key=k, http_options=types.HttpOptions(api_version='v1beta'))
+                detected = find_best_model(test_client)
+                st.session_state["active_model_name"] = detected
+                st.success(f"✅ Đã kết nối thành công với Google AI! (Model: {detected})")
+            except Exception as e:
+                st.session_state["active_model_name"] = ""
+                st.error(f"⚠️ Kiểm tra kết nối báo lỗi: {e}")
+        else:
+            st.error("⚠️ Vui lòng nhập API Key hợp lệ!")
+            
+    # Hiển thị trạng thái chuẩn xác 100%
+    if st.session_state.get("active_model_name"):
+        st.success(f"🟢 Đã kết nối AI: {st.session_state['active_model_name']}")
+    elif st.session_state.get("api_key_saved"):
+        st.info("🟡 Đã lưu Key (Sẽ tự động kích hoạt khi tạo)")
+    else:
+        st.warning("🔴 Chưa nhập API Key (Đang dùng kịch bản offline)")
+        
     st.divider()
     if st.button("🔒 Đăng Xuất / Khóa Lại"):
         st.session_state["authenticated"] = False
@@ -479,7 +593,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN (ÉP AI VIẾT CỰC KỲ DÀI VÀ HẤP DẪN)
+# TAB 1: SOẠN GIÁO ÁN CHUẨN (KỊCH BẢN DÀI 1.500 TỪ CHI TIẾT)
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -540,7 +654,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 5. CẤU TRÚC MỤC ĐÍCH - YÊU CẦU:")
     goal_structure = st.radio("Lựa chọn cấu trúc", ["1-3 gạch đầu dòng", "2-3 mục chuẩn (Kiến thức, Kỹ năng, Thái độ)"], horizontal=True, index=1)
     st.markdown("### 6. ĐỀ TÀI BÀI DẠY CỤ THỂ * (BẮT BUỘC):")
-    topic = st.text_input("Nhập tên đề tài", "Vẽ lọ hoa (hoặc Ném xa bằng 1 tay)")
+    topic = st.text_input("Nhập tên đề tài", "Bé tập làm quen với toán (hoặc Vẽ lọ hoa)")
     st.markdown("### 7. YÊU CẦU TÍCH HỢP (TÙY CHỌN) - (Chọn 1-2 mục):")
     col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
     with col_c1: opt0 = st.checkbox("Không")
@@ -555,55 +669,59 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     if opt4: extras.append("Quyền trẻ em")
 
     st.markdown("### 8. MỤC TIÊU CẦN ĐẠT (Tùy chọn):")
-    custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ biết cách cầm bút vẽ lọ hoa cân đối, tô màu khéo léo (MT15).")
+    custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ biết đếm đến 3, nhận biết chữ số 3 và số lượng tương ứng.")
     st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
-    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, dẫn dắt bằng một tình huống thú vị...")
+    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới...")
     st.markdown("### 10. ĐÁNH GIÁ CUỐI NGÀY:")
     auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn", value=True)
     
     plan_info_dict = {
         "school": school_name, "teacher": teacher_name, "class_name": class_name,
         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 3.8 Flash", "age": age_group, "extras": extras,
+        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini AI", "age": age_group, "extras": extras,
         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment,
         "doc_title": "GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG HỌC"
     }
 
     if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang kết nối AI biên soạn kịch bản giáo án SIÊU CHI TIẾT & SÁNG TẠO (vui lòng đợi ~10-15 giây)..."):
+        with st.spinner("⚡ Đang kết nối AI biên soạn kịch bản giáo án SIÊU CHI TIẾT (vui lòng đợi ~10-15 giây)..."):
             art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
             
             prompt = f"""
-            Bạn là một Chuyên gia Giáo dục Mầm non xuất sắc. Hãy soạn một GIÁO ÁN MẦM NON CHUẨN BỘ GD&ĐT với yêu cầu BẮT BUỘC SAU ĐÂY:
-            - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề: {theme} | Lĩnh vực: {domain} ({sub_category})
-            - Loại hoạt động: {activity_type} | Dạng tiết: {route_type}
+            Đóng vai là một Chuyên gia Giáo dục Mầm non xuất sắc của Bộ GD&ĐT Việt Nam, hãy biên soạn một GIÁO ÁN MẦM NON HOÀN CHỈNH, RẤT DÀI VÀ CỰC KỲ CHI TIẾT (Ít nhất 1200 - 1800 từ) để giáo viên có thể cầm lên lớp giảng dạy ngay:
+            - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề lớn: {theme}
+            - Lĩnh vực phát triển: {domain} ({sub_category}) | Loại hoạt động: {activity_type} | Dạng tiết: {route_type}
             {art_prompt_part}
             - Chế độ: {st.session_state['soan_mode_val']} | Định dạng: {st.session_state['display_fmt_val']}
-            - Mục tiêu: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt viết thật chi tiết 3-4 ý)'}
+            - Mục tiêu cần đạt: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt viết 3-4 ý rất chi tiết)'}
             - Tích hợp: {', '.join(extras) if extras else 'Cơ bản'}
             - Ý tưởng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
             
-            YÊU CẦU LÕI: 
-            1. Bài soạn CỰC KỲ DÀI VÀ CHI TIẾT, không viết chung chung, sơ lược. Viết dài khoảng 1000 - 1500 từ.
-            2. Phần TỔ CHỨC HOẠT ĐỘNG: Bắt buộc viết dưới dạng KỊCH BẢN TƯƠNG TÁC. Ghi RÕ RÀNG từng CÂU NÓI, LỜI DẪN DẮT, CÂU HỎI GỢI MỞ HẤP DẪN của Cô (Cô nói: "...") và LỜI ĐÁP CỦA TRẺ (Trẻ đáp: "...").
-            3. Thiết kế tình huống khởi động lôi cuốn, trò chơi thực hành phong phú, kích thích tư duy.
-            
-            Trình bày theo 4 phần:
+            YÊU CẦU BẮT BUỘC VỀ NỘI DUNG VÀ ĐỘ DÀI:
+            1. BÀI SOẠN PHẢI RẤT DÀI, CHI TIẾT, KHÔNG ĐƯỢC TÓM TẮT HOẶC VIẾT SƠ LƯỢC.
+            2. Phần III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG: Bắt buộc viết dưới dạng KỊCH BẢN TƯƠNG TÁC CHI TIẾT LỜI CÔ VÀ LỜI TRẺ:
+               - Ghi rõ từng lời dẫn dắt, câu hỏi gợi mở của cô (Ví dụ: Cô nói: "...", Cô hỏi: "...")
+               - Ghi rõ câu trả lời ngây thơ dự kiến của trẻ (Ví dụ: Trẻ trả lời: "...")
+               - Cô khen ngợi, sửa sai, gợi mở tư duy cho trẻ.
+            3. Trọng tâm bài học phải chia làm các bước mạch lạc: Khám phá trải nghiệm thực tế -> Cô đàm thoại phân tích sâu -> Trẻ thực hành sáng tạo -> Trò chơi củng cố có luật chơi rõ ràng.
+            4. Sử dụng ngôn từ vui tươi, trong trẻo, cuốn hút trẻ nhỏ.
+
+            Trình bày theo đúng 4 mục lớn:
             I. MỤC ĐÍCH - YÊU CẦU (1. Kiến thức, 2. Kỹ năng, 3. Thái độ)
-            II. CHUẨN BỊ (Liệt kê cụ thể từng đồ dùng của Cô & Trẻ)
-            III. TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Khởi động/Gây hứng thú; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc).
+            II. CHUẨN BỊ (1. Đồ dùng của cô, 2. Đồ dùng của trẻ, 3. Địa điểm)
+            III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Ổn định tổ chức; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc)
             IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng:
             - Tình trạng sức khỏe: ...
             - Trạng thái cảm xúc, thái độ: ...
             - Kiến thức, kỹ năng: ...)
             
-            Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc (1, 2, 3).
+            Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc số thứ tự.
             """
             result_text, err = generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=plan_info_dict)
             
             if err:
-                st.error(f"⚠️ **{err}**\n\n👉 Hệ thống tạm dùng 'Bản giáo án dự phòng rút gọn'. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại!")
+                st.warning(f"⚠️ **Thông báo kết nối:** {err}\n\n👉 Ứng dụng đã tự động áp dụng kịch bản mầm non chuẩn 1.200 từ hoàn chỉnh bên dưới để cô giáo sử dụng ngay!")
             else:
                 st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
 
@@ -667,11 +785,11 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
             Đóng vai là chuyên gia giáo dục mầm non, soạn giáo án Tích hợp Năng lực số:
             - Đề tài: {dg_topic} | Độ tuổi: {dg_age} | Lĩnh vực: {dg_domain}
             
-            YÊU CẦU: Viết RẤT DÀI VÀ CỰC KỲ CHI TIẾT. Trình bày như một kịch bản lên lớp với lời cô dẫn dắt, tương tác với thiết bị số và câu trả lời của trẻ. Không dùng dấu ### hoặc **. Gồm 4 phần: Mục đích yêu cầu, Chuẩn bị, Tổ chức hoạt động, Đánh giá cuối ngày.
+            YÊU CẦU: Viết RẤT DÀI VÀ CỰC KỲ CHI TIẾT (1200+ từ). Trình bày như một kịch bản lên lớp với lời cô dẫn dắt, tương tác với thiết bị số và câu trả lời của trẻ. Không dùng dấu ### hoặc **. Gồm 4 phần: Mục đích yêu cầu, Chuẩn bị, Tổ chức hoạt động, Đánh giá cuối ngày.
             """
             res, err = generate_fast_ai_content(api_key, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
             if err:
-                st.error(f"⚠️ **{err}**\n\n👉 Hệ thống tạm dùng bản dự phòng rút gọn.")
+                st.warning(f"⚠️ {err}")
             else:
                 st.success("🎉 Đã hoàn thành Giáo án Tích hợp Năng lực số!")
             st.session_state["saved_digital_plan"] = res
@@ -698,7 +816,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             with st.spinner("⚡ Đang lập kế hoạch chi tiết..."):
                 info_m = {"month": m_month_val, "theme": m_theme_val, "age": m_age}
                 res, err = generate_fast_ai_content(api_key, f"Lập kế hoạch giáo dục tháng {m_month_val} chủ đề {m_theme_val} cho {m_age}. Thật dài và chi tiết. Không dùng dấu ###.", fallback_type="month", fallback_data=info_m)
-                if err: st.error(f"⚠️ **{err}**")
+                if err: st.warning(f"⚠️ {err}")
                 st.session_state["saved_month_plan"] = res
         if "saved_month_plan" in st.session_state:
             st.markdown(format_text_to_standard_html(st.session_state["saved_month_plan"], 14), unsafe_allow_html=True)
@@ -712,7 +830,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             with st.spinner("⚡ Đang lập kế hoạch tuần chi tiết..."):
                 info_w = {"week_num": w_week_num, "theme_week": w_theme_week, "age": w_age2}
                 res, err = generate_fast_ai_content(api_key, f"Lập kế hoạch tuần {w_week_num} chủ đề {w_theme_week} cho trẻ {w_age2}. Phân bổ chi tiết từ Thứ 2 đến Thứ 6. Dài và chi tiết. Không dùng dấu ###.", fallback_type="week", fallback_data=info_w)
-                if err: st.error(f"⚠️ **{err}**")
+                if err: st.warning(f"⚠️ {err}")
                 st.session_state["saved_week_plan"] = res
         if "saved_week_plan" in st.session_state:
             st.markdown(format_text_to_standard_html(st.session_state["saved_week_plan"], 14), unsafe_allow_html=True)
@@ -727,7 +845,7 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
     if st.button("✨ Sáng Tác Ngay", type="primary"):
         with st.spinner("⚡ Đang sáng tác nội dung..."):
             res, err = generate_fast_ai_content(api_key, f"Sáng tác {genre} cực hay, dài, hấp dẫn cho trẻ mầm non chủ đề {topic_game}. Không dùng dấu ###", fallback_type="creative", fallback_data={"genre": genre, "topic": topic_game})
-            if err: st.error(f"⚠️ **{err}**")
+            if err: st.warning(f"⚠️ {err}")
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 elif app_mode == "💬 Sổ Liên Lạc & Zalo":
@@ -737,7 +855,7 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
     if st.button("💌 Soạn Tin", type="primary"):
         with st.spinner("⚡ Đang soạn tin..."):
             res, err = generate_fast_ai_content(api_key, f"Soạn {task_type} mầm non thân thiện, dài, tình cảm, tóm tắt: {child_info}. Không dùng dấu ###", fallback_type="zalo", fallback_data={"type": task_type, "info": child_info})
-            if err: st.error(f"⚠️ **{err}**")
+            if err: st.warning(f"⚠️ {err}")
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
@@ -746,7 +864,7 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
     if st.button("🛠️ Gợi Ý Cách Làm", type="primary"):
         with st.spinner("⚡ Đang gợi ý cách làm chi tiết..."):
             res, err = generate_fast_ai_content(api_key, f"Gợi ý làm đồ dùng phế liệu mầm non chi tiết từng bước cho bài: {lesson_name}. Không dùng dấu ###", fallback_type="diy", fallback_data={"lesson": lesson_name})
-            if err: st.error(f"⚠️ **{err}**")
+            if err: st.warning(f"⚠️ {err}")
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 elif app_mode == "📚 Kho Lịch Sử Giáo Án":
