@@ -283,7 +283,7 @@ def get_plan_by_id(plan_id):
     except Exception: return None
 
 # ==========================================
-# BỘ CỨU CÁNH & XỬ LÝ AI 
+# BỘ CỨU CÁNH DỰ PHÒNG KHI API KEY BỊ LỖI
 # ==========================================
 def generate_instant_pedagogical_plan(info: dict) -> str:
     topic = info.get("topic", "Hoạt động")
@@ -321,8 +321,7 @@ Hoạt động 3: Kết thúc
 IV. ĐÁNH GIÁ CUỐI NGÀY
 - Tình trạng sức khỏe: 100% trẻ khỏe mạnh, tham gia tốt các hoạt động.
 - Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng tương tác tốt cùng cô và bạn.
-- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời.
-*(Lưu ý: Đây là bản giáo án dự phòng do hệ thống không kết nối được với AI trong thời gian cho phép. Vui lòng thử lại sau 1 phút)*"""
+- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời."""
     return clean_markdown_text(raw_plan)
 
 def generate_instant_digital_plan(info: dict) -> str:
@@ -332,25 +331,12 @@ def generate_instant_digital_plan(info: dict) -> str:
 def generate_instant_month_plan(info: dict) -> str:
     month = info.get("month", "Tháng")
     theme = info.get("theme", "Chủ đề")
-    return f"""KẾ HOẠCH GIÁO DỤC {month.upper()} - CHỦ ĐỀ: {theme.upper()}
-I. MỤC TIÊU PHÁT TRIỂN THÁNG: Phát triển toàn diện 5 mặt cho trẻ mầm non.
-II. MẠNG NỘI DUNG: Trẻ làm quen, khám phá đặc điểm và trải nghiệm thực tế.
-III. MẠNG HOẠT ĐỘNG: Toán, Khám phá, Âm nhạc, Văn học, Tạo hình.
-IV. ĐÁNH GIÁ: Theo dõi sự tiến bộ của trẻ hàng tuần.
-*(Lưu ý: Đây là bản kế hoạch dự phòng)*"""
+    return f"KẾ HOẠCH GIÁO DỤC {month.upper()} - CHỦ ĐỀ: {theme.upper()}\nI. MỤC TIÊU PHÁT TRIỂN THÁNG: Phát triển toàn diện 5 mặt cho trẻ mầm non.\nII. MẠNG NỘI DUNG: Trẻ làm quen, khám phá đặc điểm và trải nghiệm thực tế.\nIII. MẠNG HOẠT ĐỘNG: Toán, Khám phá, Âm nhạc, Văn học, Tạo hình.\nIV. ĐÁNH GIÁ: Theo dõi sự tiến bộ của trẻ hàng tuần."
 
 def generate_instant_week_plan(info: dict) -> str:
     week = info.get("week_num", "Tuần")
     theme = info.get("theme_week", "Chủ đề")
-    return f"""KẾ HOẠCH GIÁO DỤC {week.upper()} - NHÁNH: {theme.upper()}
-I. MỤC TIÊU: Trẻ hiểu rõ đặc điểm nhánh {theme}.
-II. KẾ HOẠCH HÀNG NGÀY:
-1. THỨ HAI: Học tập và vận động cơ bản.
-2. THỨ BA: Khám phá và vui chơi ngoài trời.
-3. THỨ TƯ: Tạo hình sáng tạo.
-4. THỨ NĂM: Làm quen văn học.
-5. THỨ SÁU: Âm nhạc và tổng kết nêu gương bé ngoan.
-*(Lưu ý: Đây là bản kế hoạch dự phòng)*"""
+    return f"KẾ HOẠCH GIÁO DỤC {week.upper()} - NHÁNH: {theme.upper()}\nI. MỤC TIÊU: Trẻ hiểu rõ đặc điểm nhánh {theme}.\nII. KẾ HOẠCH HÀNG NGÀY:\n1. THỨ HAI: Học tập và vận động cơ bản.\n2. THỨ BA: Khám phá và vui chơi ngoài trời.\n3. THỨ TƯ: Tạo hình sáng tạo.\n4. THỨ NĂM: Làm quen văn học.\n5. THỨ SÁU: Âm nhạc và tổng kết nêu gương bé ngoan."
 
 def generate_instant_creative_content(genre: str, topic: str) -> str:
     return f"{genre.upper()}: {topic.upper()}\nĐây là bản tạo nhanh do AI đang bận. Bạn vui lòng thử lại sau 1 phút nhé!"
@@ -362,42 +348,41 @@ def generate_instant_diy(lesson: str) -> str:
     return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
 
 # ==========================================
-# TRÁI TIM CỦA AI: ĐÃ SỬA LỖI MODEL & THỜI GIAN
+# TRÁI TIM CỦA AI: NÂNG CẤP ĐỂ HIỂN THỊ LỖI RÕ RÀNG
 # ==========================================
 def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=None):
+    error_msg = None
+    text_out = ""
     def _call_model():
-        # Gọi model flash của Google, mở khóa giới hạn độ dài bằng max_output_tokens=8192
         res = client.models.generate_content(
             model='gemini-1.5-flash',
             contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=8192,
-                temperature=0.7
-            )
         )
         return res.text
 
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        # THỜI GIAN CHỜ: 45 GIÂY ĐỂ ĐẢM BẢO AI CÓ THỂ HOÀN THÀNH BÀI DÀI
         text_out = future.result(timeout=45) 
-        executor.shutdown(wait=False)
-        if text_out and text_out.strip():
-            return clean_markdown_text(text_out)
+    except FuturesTimeoutError:
+        error_msg = "AI của Google phản hồi quá chậm (vượt quá 45 giây)."
     except Exception as e:
+        error_msg = f"Lỗi API Key hoặc Kết nối: {str(e)}"
+    finally:
         executor.shutdown(wait=False)
-        print(f"API Error: {e}") # Bắt lỗi để không bị dừng app
 
-    # Nếu AI lỗi hoặc quá chậm, dùng bản ngắn dự phòng
-    if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data)
-    elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data)
-    elif fallback_type == "month": return generate_instant_month_plan(fallback_data)
-    elif fallback_type == "week": return generate_instant_week_plan(fallback_data)
-    elif fallback_type == "creative": return generate_instant_creative_content(fallback_data.get("genre", ""), fallback_data.get("topic", ""))
-    elif fallback_type == "zalo": return generate_instant_zalo(fallback_data.get("type", ""), fallback_data.get("info", ""))
-    elif fallback_type == "diy": return generate_instant_diy(fallback_data.get("lesson", ""))
-    return "Đã hoàn thành nội dung cho cô giáo!"
+    if text_out and text_out.strip():
+        return clean_markdown_text(text_out), None
+
+    # Trả về bản dự phòng kèm thông báo lỗi để hiển thị lên màn hình
+    if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data), error_msg
+    elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data), error_msg
+    elif fallback_type == "month": return generate_instant_month_plan(fallback_data), error_msg
+    elif fallback_type == "week": return generate_instant_week_plan(fallback_data), error_msg
+    elif fallback_type == "creative": return generate_instant_creative_content(fallback_data.get("genre", ""), fallback_data.get("topic", "")), error_msg
+    elif fallback_type == "zalo": return generate_instant_zalo(fallback_data.get("type", ""), fallback_data.get("info", "")), error_msg
+    elif fallback_type == "diy": return generate_instant_diy(fallback_data.get("lesson", "")), error_msg
+    return "Đã hoàn thành nội dung cho cô giáo!", error_msg
 
 # ==========================================
 # MÀN HÌNH ĐĂNG NHẬP & SIDEBAR
@@ -473,7 +458,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN (BẢN GỐC TỐI QUA + NÂNG CẤP AI CHI TIẾT)
+# TAB 1: SOẠN GIÁO ÁN CHUẨN
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -551,7 +536,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 8. MỤC TIÊU CẦN ĐẠT (Tùy chọn):")
     custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ biết cách cầm bút vẽ lọ hoa cân đối, tô màu khéo léo (MT15).")
     st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
-    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới...")
+    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, dẫn dắt bằng một tình huống thú vị...")
     st.markdown("### 10. ĐÁNH GIÁ CUỐI NGÀY:")
     auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn", value=True)
     
@@ -565,50 +550,50 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     }
 
     if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & SÁNG TẠO (AI đang viết nội dung sâu, vui lòng đợi ~15 giây)..."):
+        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & SÁNG TẠO (Vui lòng đợi ~20 giây)..."):
             if api_key:
-                try:
-                    client = genai.Client(api_key=api_key)
-                    art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
-                    
-                    # PROMPT SIÊU CHI TIẾT: ÉP AI VIẾT THẬT DÀI, CÓ LỜI THOẠI CÔ VÀ TRẺ
-                    prompt = f"""
-                    Bạn là một Chuyên gia Giáo dục Mầm non xuất sắc. Hãy soạn một GIÁO ÁN MẦM NON CHUẨN BỘ GD&ĐT với yêu cầu BẮT BUỘC SAU ĐÂY:
-                    - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề: {theme} | Lĩnh vực: {domain} ({sub_category})
-                    - Loại hoạt động: {activity_type} | Dạng tiết: {route_type}
-                    {art_prompt_part}
-                    - Chế độ: {st.session_state['soan_mode_val']} | Định dạng: {st.session_state['display_fmt_val']}
-                    - Mục tiêu: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt 2-3 ý)'}
-                    - Tích hợp: {', '.join(extras) if extras else 'Cơ bản'}
-                    - Ý tưởng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
-                    
-                    YÊU CẦU LÕI: 
-                    1. BÀI PHẢI RẤT DÀI, CỰC KỲ CHI TIẾT NHƯ MỘT KỊCH BẢN (Ít nhất 1000 từ). KHÔNG VIẾT CHUNG CHUNG SƠ LƯỢC.
-                    2. Trong phần Tổ chức hoạt động: Phải ghi rõ ràng TỪNG LỜI THOẠI, CÂU HỎI HẤP DẪN của Cô (Cô nói: "...") và LỜI ĐÁP CỦA TRẺ (Trẻ đáp: "...").
-                    3. Thiết kế tình huống khởi động lôi cuốn, trò chơi thực hành phong phú, kích thích tư duy của trẻ. Ngôn từ ngộ nghĩnh, gần gũi.
-                    
-                    Trình bày theo 4 phần:
-                    I. MỤC ĐÍCH - YÊU CẦU
-                    II. CHUẨN BỊ (Liệt kê cụ thể từng đồ dùng)
-                    III. TỔ CHỨC HOẠT ĐỘNG (Chia rõ 3 hoạt động: Gây hứng thú, Trọng tâm khám phá/thực hành, Kết thúc. Trình bày dưới dạng đối thoại Cô - Trò).
-                    IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng:
-                    - Tình trạng sức khỏe: ...
-                    - Trạng thái cảm xúc, thái độ: ...
-                    - Kiến thức, kỹ năng: ...)
-                    
-                    Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc (1, 2, 3).
-                    """
-                    result_text = generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=plan_info_dict)
-                except Exception as e:
-                    result_text = generate_instant_pedagogical_plan(plan_info_dict)
+                art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
+                
+                # PROMPT SIÊU CHI TIẾT
+                prompt = f"""
+                Bạn là một Chuyên gia Giáo dục Mầm non xuất sắc. Hãy soạn một GIÁO ÁN MẦM NON CHUẨN BỘ GD&ĐT với yêu cầu BẮT BUỘC SAU ĐÂY:
+                - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề: {theme} | Lĩnh vực: {domain} ({sub_category})
+                - Loại hoạt động: {activity_type} | Dạng tiết: {route_type}
+                {art_prompt_part}
+                - Chế độ: {st.session_state['soan_mode_val']} | Định dạng: {st.session_state['display_fmt_val']}
+                - Mục tiêu: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt viết thật chi tiết)'}
+                - Tích hợp: {', '.join(extras) if extras else 'Cơ bản'}
+                - Ý tưởng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
+                
+                YÊU CẦU LÕI (RẤT QUAN TRỌNG): 
+                1. Bài soạn CỰC KỲ DÀI VÀ CHI TIẾT, không viết chung chung, sơ lược.
+                2. Phần TỔ CHỨC HOẠT ĐỘNG: Bắt buộc viết dưới dạng KỊCH BẢN TƯƠNG TÁC. Ghi RÕ RÀNG từng CÂU NÓI, LỜI DẪN DẮT, CÂU HỎI GỢI MỞ HẤP DẪN của Cô (Cô nói: "...") và LỜI ĐÁP CỦA TRẺ (Trẻ đáp: "...").
+                3. Thiết kế tình huống khởi động lôi cuốn, trò chơi thực hành phong phú, kích thích tư duy.
+                
+                Trình bày theo 4 phần:
+                I. MỤC ĐÍCH - YÊU CẦU
+                II. CHUẨN BỊ (Liệt kê cụ thể từng đồ dùng)
+                III. TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Khởi động/Gây hứng thú; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc).
+                IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng:
+                - Tình trạng sức khỏe: ...
+                - Trạng thái cảm xúc, thái độ: ...
+                - Kiến thức, kỹ năng: ...)
+                
+                Tuyệt đối KHÔNG sử dụng ký tự ### hay **.
+                """
+                client = genai.Client(api_key=api_key)
+                result_text, err = generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=plan_info_dict)
+                
+                if err: # XỬ LÝ LỖI API KEY CỰC KỲ RÕ RÀNG
+                    st.error(f"⚠️ **{err}**\n\n👉 Do API Key bị lỗi, hệ thống phải tự động dùng 'Bản giáo án dự phòng rút gọn'. Anh hãy vào Google AI Studio tạo lại API Key mới và dán vào thanh bên trái nhé!")
             else:
-                result_text = generate_instant_pedagogical_plan(plan_info_dict)
+                result_text, err = generate_instant_pedagogical_plan(plan_info_dict), None
+                st.warning("⚠️ Báo động: Anh chưa nhập API Key! Hệ thống đang hiển thị 'Bản giáo án dự phòng rút gọn'. Anh hãy nhập API Key ở thanh bên trái để tạo giáo án siêu chi tiết nhé!")
 
-            result_text = clean_markdown_text(result_text)
             st.session_state["generated_plan_text"] = result_text
             st.session_state["plan_info"] = plan_info_dict
             save_plan_to_db(topic, result_text)
-        st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
+        st.success("🎉 Đã xử lý xong!")
 
     if "generated_plan_text" in st.session_state:
         st.divider()
@@ -660,22 +645,22 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         dg_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=3)
         
     if st.button("✨ Soạn Giáo Án Năng Lực Số AI", type="primary"):
-        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 15-20 giây)..."):
+        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 20 giây)..."):
             digital_info_dict = {"topic": dg_topic, "domain": dg_domain, "age": dg_age}
             if api_key:
-                try:
-                    client = genai.Client(api_key=api_key)
-                    prompt_digital = f"""
-                    Đóng vai là chuyên gia giáo dục mầm non, soạn giáo án Tích hợp Năng lực số:
-                    - Đề tài: {dg_topic} | Độ tuổi: {dg_age} | Lĩnh vực: {dg_domain}
-                    
-                    YÊU CẦU: Viết RẤT DÀI VÀ CỰC KỲ CHI TIẾT. Trình bày như một kịch bản lên lớp với lời cô dẫn dắt, tương tác với thiết bị số và câu trả lời của trẻ. Không dùng dấu ### hoặc **. Gồm 4 phần: Mục đích yêu cầu, Chuẩn bị, Tổ chức hoạt động, Đánh giá cuối ngày.
-                    """
-                    res = generate_fast_ai_content(client, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
-                except Exception:
-                    res = generate_instant_digital_plan(digital_info_dict)
+                client = genai.Client(api_key=api_key)
+                prompt_digital = f"""
+                Đóng vai là chuyên gia giáo dục mầm non, soạn giáo án Tích hợp Năng lực số:
+                - Đề tài: {dg_topic} | Độ tuổi: {dg_age} | Lĩnh vực: {dg_domain}
+                
+                YÊU CẦU: Viết RẤT DÀI VÀ CỰC KỲ CHI TIẾT. Trình bày như một kịch bản lên lớp với lời cô dẫn dắt, tương tác với thiết bị số và câu trả lời của trẻ. Không dùng dấu ### hoặc **. Gồm 4 phần: Mục đích yêu cầu, Chuẩn bị, Tổ chức hoạt động, Đánh giá cuối ngày.
+                """
+                res, err = generate_fast_ai_content(client, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
+                if err:
+                    st.error(f"⚠️ **{err}**\n\n👉 Do API Key bị lỗi, hệ thống phải tự động dùng 'Bản giáo án dự phòng rút gọn'. Anh hãy vào Google AI Studio tạo lại API Key mới và dán vào thanh bên trái nhé!")
             else:
-                res = generate_instant_digital_plan(digital_info_dict)
+                res, err = generate_instant_digital_plan(digital_info_dict), None
+                st.warning("⚠️ Anh chưa nhập API Key. Đang hiển thị bản dự phòng.")
             st.session_state["saved_digital_plan"] = res
 
     if "saved_digital_plan" in st.session_state:
@@ -683,7 +668,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         d_font_size = st.session_state.get("d_font_size_slider", 14)
         render_copy_and_print_buttons(st.session_state["saved_digital_plan"], f"Giáo Án Năng Lực Số", d_font_size, "tab_digital")
         d_font_size = st.slider("🔤 Kích thước chữ (pt):", 12, 24, d_font_size, 1, key="d_font_size_slider")
-        st.markdown(f'<div style="background-color: #ffffff; color: #000000; font-family: \'Times New Roman\', Times, serif; font-size: {d_font_size}pt; line-height: 1.5; padding: 35px 45px; border-radius: 12px; border: 1.5px solid #B2E5D6; box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08); text-align: justify;">{format_text_to_standard_html(st.session_state["saved_digital_plan"], d_font_size)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background-color: #ffffff; font-family: \'Times New Roman\', Times, serif; font-size: {d_font_size}pt; line-height: 1.5; padding: 35px 45px; border-radius: 12px; border: 1.5px solid #B2E5D6; box-shadow: 0 6px 18px rgba(0, 121, 107, 0.08); text-align: justify;">{format_text_to_standard_html(st.session_state["saved_digital_plan"], d_font_size)}</div>', unsafe_allow_html=True)
 
 # =========================================================================
 # TAB KẾ HOẠCH & SỔ CHỦ ĐỀ
@@ -700,10 +685,9 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             with st.spinner("⚡ Đang lập kế hoạch chi tiết..."):
                 info_m = {"month": m_month_val, "theme": m_theme_val, "age": m_age}
                 if api_key:
-                    try:
-                        client = genai.Client(api_key=api_key)
-                        res = generate_fast_ai_content(client, f"Lập kế hoạch giáo dục tháng {m_month_val} chủ đề {m_theme_val} cho {m_age}. Thật dài và chi tiết. Không dùng dấu ###.", fallback_type="month", fallback_data=info_m)
-                    except Exception: res = generate_instant_month_plan(info_m)
+                    client = genai.Client(api_key=api_key)
+                    res, err = generate_fast_ai_content(client, f"Lập kế hoạch giáo dục tháng {m_month_val} chủ đề {m_theme_val} cho {m_age}. Thật dài và chi tiết. Không dùng dấu ###.", fallback_type="month", fallback_data=info_m)
+                    if err: st.error(f"⚠️ **{err}**\n\n👉 Đang hiển thị bản dự phòng.")
                 else: res = generate_instant_month_plan(info_m)
                 st.session_state["saved_month_plan"] = res
         if "saved_month_plan" in st.session_state:
@@ -718,10 +702,9 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
             with st.spinner("⚡ Đang lập kế hoạch tuần chi tiết..."):
                 info_w = {"week_num": w_week_num, "theme_week": w_theme_week, "age": w_age2}
                 if api_key:
-                    try:
-                        client = genai.Client(api_key=api_key)
-                        res = generate_fast_ai_content(client, f"Lập kế hoạch tuần {w_week_num} chủ đề {w_theme_week} cho trẻ {w_age2}. Phân bổ chi tiết từ Thứ 2 đến Thứ 6. Dài và chi tiết. Không dùng dấu ###.", fallback_type="week", fallback_data=info_w)
-                    except Exception: res = generate_instant_week_plan(info_w)
+                    client = genai.Client(api_key=api_key)
+                    res, err = generate_fast_ai_content(client, f"Lập kế hoạch tuần {w_week_num} chủ đề {w_theme_week} cho trẻ {w_age2}. Phân bổ chi tiết từ Thứ 2 đến Thứ 6. Dài và chi tiết. Không dùng dấu ###.", fallback_type="week", fallback_data=info_w)
+                    if err: st.error(f"⚠️ **{err}**\n\n👉 Đang hiển thị bản dự phòng.")
                 else: res = generate_instant_week_plan(info_w)
                 st.session_state["saved_week_plan"] = res
         if "saved_week_plan" in st.session_state:
@@ -736,12 +719,11 @@ elif app_mode == "🎯 Trò Chơi & Đố Vui":
     genre = st.selectbox("Thể loại", ["Bài thơ ngắn dễ thuộc", "Bài đồng dao vui nhộn", "Câu đố vui cho trẻ", "Trò chơi vận động tập thể"])
     if st.button("✨ Sáng Tác Ngay", type="primary"):
         with st.spinner("⚡ Đang sáng tác nội dung..."):
-            res = generate_instant_creative_content(genre, topic_game)
             if api_key:
-                try:
-                    client = genai.Client(api_key=api_key)
-                    res = generate_fast_ai_content(client, f"Sáng tác {genre} cực hay, dài, hấp dẫn cho trẻ mầm non chủ đề {topic_game}. Không dùng dấu ###", fallback_type="creative", fallback_data={"genre": genre, "topic": topic_game})
-                except: pass
+                client = genai.Client(api_key=api_key)
+                res, err = generate_fast_ai_content(client, f"Sáng tác {genre} cực hay, dài, hấp dẫn cho trẻ mầm non chủ đề {topic_game}. Không dùng dấu ###", fallback_type="creative", fallback_data={"genre": genre, "topic": topic_game})
+                if err: st.error(f"⚠️ **{err}**")
+            else: res = generate_instant_creative_content(genre, topic_game)
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 elif app_mode == "💬 Sổ Liên Lạc & Zalo":
@@ -750,12 +732,11 @@ elif app_mode == "💬 Sổ Liên Lạc & Zalo":
     child_info = st.text_input("Nhập thông tin", "Hôm nay các con học kỹ năng tốt")
     if st.button("💌 Soạn Tin", type="primary"):
         with st.spinner("⚡ Đang soạn tin..."):
-            res = generate_instant_zalo(task_type, child_info)
             if api_key:
-                try:
-                    client = genai.Client(api_key=api_key)
-                    res = generate_fast_ai_content(client, f"Soạn {task_type} mầm non thân thiện, dài, tình cảm, tóm tắt: {child_info}. Không dùng dấu ###", fallback_type="zalo", fallback_data={"type": task_type, "info": child_info})
-                except: pass
+                client = genai.Client(api_key=api_key)
+                res, err = generate_fast_ai_content(client, f"Soạn {task_type} mầm non thân thiện, dài, tình cảm, tóm tắt: {child_info}. Không dùng dấu ###", fallback_type="zalo", fallback_data={"type": task_type, "info": child_info})
+                if err: st.error(f"⚠️ **{err}**")
+            else: res = generate_instant_zalo(task_type, child_info)
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
@@ -763,12 +744,11 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
     lesson_name = st.text_input("Nhập bài học", "Biển báo giao thông")
     if st.button("🛠️ Gợi Ý Cách Làm", type="primary"):
         with st.spinner("⚡ Đang gợi ý cách làm chi tiết..."):
-            res = generate_instant_diy(lesson_name)
             if api_key:
-                try:
-                    client = genai.Client(api_key=api_key)
-                    res = generate_fast_ai_content(client, f"Gợi ý làm đồ dùng phế liệu mầm non chi tiết từng bước cho bài: {lesson_name}. Không dùng dấu ###", fallback_type="diy", fallback_data={"lesson": lesson_name})
-                except: pass
+                client = genai.Client(api_key=api_key)
+                res, err = generate_fast_ai_content(client, f"Gợi ý làm đồ dùng phế liệu mầm non chi tiết từng bước cho bài: {lesson_name}. Không dùng dấu ###", fallback_type="diy", fallback_data={"lesson": lesson_name})
+                if err: st.error(f"⚠️ **{err}**")
+            else: res = generate_instant_diy(lesson_name)
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 elif app_mode == "📚 Kho Lịch Sử Giáo Án":
