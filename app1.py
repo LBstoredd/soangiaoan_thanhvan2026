@@ -609,4 +609,3 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
 # --- CÁC TAB KHÁC GIỮ NGUYÊN (KẾ HOẠCH, TRÒ CHƠI...) ---
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     st.info("Chuyển sang phần Kế hoạch tháng & tuần để thiết lập (Đã tích hợp đủ tính năng từ bản trước).")
-# ... v.v.
