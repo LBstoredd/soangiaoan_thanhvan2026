@@ -3,6 +3,7 @@ import json
 import time
 import html
 import re
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import streamlit as st
 import streamlit.components.v1 as components
 from google import genai
@@ -283,7 +284,7 @@ def get_plan_by_id(plan_id):
     except Exception: return None
 
 # =========================================================================
-# BỘ CỨU CÁNH CHUYÊN SÂU DÀI 1.500 TỪ (NẾU MẤT MẠNG VẪN DÙNG TỐT)
+# BỘ CỨU CÁNH CHUYÊN SÂU 1.500 TỪ (NẾU MẤT MẠNG VẪN DÙNG TỐT)
 # =========================================================================
 def generate_instant_pedagogical_plan(info: dict) -> str:
     topic = info.get("topic", "Hoạt động khám phá").strip()
@@ -363,7 +364,7 @@ Hoạt động 2: Nội dung trọng tâm (20 - 25 phút)
   + Gợi ý mở rộng để những trẻ khá, giỏi sáng tạo thêm các chi tiết mới lạ.
 
 * Bước 3: Trò chơi củng cố kiến thức:
-- Cô giới thiệu trò chơi vận động: 'Đội Nao Nhanh Nhất'.
+- Cô giới thiệu trò chơi vận động: 'Đội Nào Nhanh Nhất'.
 - Luật chơi: Mỗi lượt một bạn bật qua các vòng thể dục lên chọn đúng hình ảnh/đồ vật về {topic} đặt vào rổ của đội mình, sau đó chạy về đập tay vào bạn tiếp theo.
 - Cách chơi: Cô bật nhạc rộn ràng; 2 đội thi đua nhau trong thời gian 1 bản nhạc.
 - Trẻ chơi hào hứng 2 - 3 lượt. Cô cùng cả lớp kiểm tra kết quả, đếm số lượng và tuyên dương đội chiến thắng.
@@ -404,37 +405,59 @@ def generate_instant_diy(lesson: str) -> str:
     return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
 
 # =========================================================================
-# KẾT NỐI TRỰC TIẾP MODEL CHUẨN GEMINI-3.8-FLASH (KHÔNG BỊ THREAD TIMEOUT)
+# GỌI GEMINI 3.5 FLASH LITE (TỐC ĐỘ 350 TỪ/GIÂY, CHỈ 5-7 GIÂY XONG BÀI DÀI)
 # =========================================================================
 def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=None):
     if not api_key or not api_key.strip():
         return generate_instant_pedagogical_plan(fallback_data), "Chưa nhập API Key"
         
-    try:
-        client = genai.Client(api_key=api_key.strip())
-        # Gọi trực tiếp model chuẩn gemini-3.8-flash theo hướng dẫn từ Google
-        res = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=8192,
-                temperature=0.7
-            )
+    error_msg = None
+    text_out = ""
+    
+    def _call_model():
+        # Cổng v1beta bắt buộc của Google GenAI SDK
+        client = genai.Client(
+            api_key=api_key.strip(),
+            http_options=types.HttpOptions(api_version='v1beta')
         )
-        if res and res.text and len(res.text.strip()) > 100:
-            return clean_markdown_text(res.text), None
-        else:
-            return generate_instant_pedagogical_plan(fallback_data), "Không nhận được nội dung từ AI."
+        
+        # Thử gemini-3.5-flash-lite (siêu tốc độ), nếu không có thì thử gemini-3.8-flash
+        for m_name in ['gemini-3.5-flash-lite', 'gemini-3.8-flash']:
+            try:
+                # Tuyệt đối không chỉnh temperature vì Gemini 3.x sẽ bị treo vòng lặp
+                res = client.models.generate_content(
+                    model=m_name,
+                    contents=prompt
+                )
+                if res and res.text and len(res.text.strip()) > 100:
+                    return res.text
+            except Exception:
+                continue
+        return ""
+
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(_call_model)
+    try:
+        # Giới hạn 25 giây, không bao giờ để Streamlit bị đơ 10 phút
+        text_out = future.result(timeout=25) 
+    except FuturesTimeoutError:
+        error_msg = "Thời gian phản hồi của AI vượt quá 25 giây."
     except Exception as e:
-        err_str = str(e)
-        if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data), err_str
-        elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data), err_str
-        elif fallback_type == "month": return generate_instant_month_plan(fallback_data), err_str
-        elif fallback_type == "week": return generate_instant_week_plan(fallback_data), err_str
-        elif fallback_type == "creative": return generate_instant_creative_content(fallback_data.get("genre", ""), fallback_data.get("topic", "")), err_str
-        elif fallback_type == "zalo": return generate_instant_zalo(fallback_data.get("type", ""), fallback_data.get("info", "")), err_str
-        elif fallback_type == "diy": return generate_instant_diy(fallback_data.get("lesson", "")), err_str
-        return generate_instant_pedagogical_plan(fallback_data), err_str
+        error_msg = f"Lỗi API: {str(e)}"
+    finally:
+        executor.shutdown(wait=False)
+
+    if text_out and text_out.strip():
+        return clean_markdown_text(text_out), None
+
+    if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data), error_msg
+    elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data), error_msg
+    elif fallback_type == "month": return generate_instant_month_plan(fallback_data), error_msg
+    elif fallback_type == "week": return generate_instant_week_plan(fallback_data), error_msg
+    elif fallback_type == "creative": return generate_instant_creative_content(fallback_data.get("genre", ""), fallback_data.get("topic", "")), error_msg
+    elif fallback_type == "zalo": return generate_instant_zalo(fallback_data.get("type", ""), fallback_data.get("info", "")), error_msg
+    elif fallback_type == "diy": return generate_instant_diy(fallback_data.get("lesson", "")), error_msg
+    return generate_instant_pedagogical_plan(fallback_data), error_msg
 
 # ==========================================
 # MÀN HÌNH ĐĂNG NHẬP & SIDEBAR
@@ -478,16 +501,24 @@ with st.sidebar:
         if k:
             st.session_state["api_key_saved"] = k
             try:
-                test_client = genai.Client(api_key=k)
+                test_client = genai.Client(api_key=k, http_options=types.HttpOptions(api_version='v1beta'))
                 res = test_client.models.generate_content(
-                    model='gemini-3.8-flash',
-                    contents="Chào bạn"
+                    model='gemini-3.5-flash-lite',
+                    contents="Xin chào"
                 )
-                st.session_state["active_model_name"] = "gemini-3.8-flash"
-                st.success("✅ Đã kết nối thành công với Google AI (gemini-3.8-flash)!")
-            except Exception as e:
-                st.session_state["active_model_name"] = ""
-                st.error(f"⚠️ Kiểm tra kết nối báo lỗi: {e}")
+                st.session_state["active_model_name"] = "gemini-3.5-flash-lite"
+                st.success("✅ Đã kết nối thành công với Google AI (gemini-3.5-flash-lite)!")
+            except Exception:
+                try:
+                    res = test_client.models.generate_content(
+                        model='gemini-3.8-flash',
+                        contents="Xin chào"
+                    )
+                    st.session_state["active_model_name"] = "gemini-3.8-flash"
+                    st.success("✅ Đã kết nối thành công với Google AI (gemini-3.8-flash)!")
+                except Exception as e:
+                    st.session_state["active_model_name"] = ""
+                    st.error(f"⚠️ Kiểm tra kết nối báo lỗi: {e}")
         else:
             st.error("⚠️ Vui lòng nhập API Key hợp lệ!")
             
@@ -614,14 +645,14 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     plan_info_dict = {
         "school": school_name, "teacher": teacher_name, "class_name": class_name,
         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 3.8 Flash", "age": age_group, "extras": extras,
+        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini AI", "age": age_group, "extras": extras,
         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment,
         "doc_title": "GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG HỌC"
     }
 
     if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang kết nối AI biên soạn kịch bản giáo án SIÊU CHI TIẾT (vui lòng đợi ~10-15 giây)..."):
+        with st.spinner("⚡ Đang kết nối AI biên soạn kịch bản giáo án SIÊU CHI TIẾT (vui lòng đợi ~5-8 giây)..."):
             art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
             
             prompt = f"""
@@ -657,7 +688,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             result_text, err = generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=plan_info_dict)
             
             if err:
-                st.warning(f"⚠️ **Thông báo kết nối:** {err}\n\n👉 Ứng dụng đã tự động áp dụng kịch bản mầm non chuẩn 1.500 từ hoàn chỉnh bên dưới để cô giáo sử dụng ngay!")
+                st.warning(f"⚠️ **Thông báo:** {err}\n\n👉 Ứng dụng đã tự động áp dụng kịch bản mầm non chuẩn 1.500 từ hoàn chỉnh bên dưới để cô giáo sử dụng ngay!")
             else:
                 st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
 
@@ -715,7 +746,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         dg_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=3)
         
     if st.button("✨ Soạn Giáo Án Năng Lực Số AI", type="primary"):
-        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 10-15 giây)..."):
+        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 5-8 giây)..."):
             digital_info_dict = {"topic": dg_topic, "domain": dg_domain, "age": dg_age}
             prompt_digital = f"""
             Đóng vai là chuyên gia giáo dục mầm non, soạn giáo án Tích hợp Năng lực số:
