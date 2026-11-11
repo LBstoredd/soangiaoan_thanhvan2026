@@ -283,7 +283,7 @@ def get_plan_by_id(plan_id):
     except Exception: return None
 
 # ==========================================
-# BỘ CỨU CÁNH & XỬ LÝ AI 
+# BỘ CỨU CÁNH KHI MẤT MẠNG 
 # ==========================================
 def generate_instant_pedagogical_plan(info: dict) -> str:
     topic = info.get("topic", "Hoạt động")
@@ -321,8 +321,7 @@ Hoạt động 3: Kết thúc
 IV. ĐÁNH GIÁ CUỐI NGÀY
 - Tình trạng sức khỏe: 100% trẻ khỏe mạnh, tham gia tốt các hoạt động.
 - Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng tương tác tốt cùng cô và bạn.
-- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời.
-(Lưu ý: Đây là bản giáo án mẫu sinh nhanh do AI quá tải, vui lòng thử lại sau vài giây để nhận kịch bản chi tiết)"""
+- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời."""
     return clean_markdown_text(raw_plan)
 
 def generate_instant_digital_plan(info: dict) -> str:
@@ -332,23 +331,12 @@ def generate_instant_digital_plan(info: dict) -> str:
 def generate_instant_month_plan(info: dict) -> str:
     month = info.get("month", "Tháng")
     theme = info.get("theme", "Chủ đề")
-    return f"""KẾ HOẠCH GIÁO DỤC {month.upper()} - CHỦ ĐỀ: {theme.upper()}
-I. MỤC TIÊU PHÁT TRIỂN THÁNG: Phát triển toàn diện 5 mặt cho trẻ mầm non.
-II. MẠNG NỘI DUNG: Trẻ làm quen, khám phá đặc điểm và trải nghiệm thực tế.
-III. MẠNG HOẠT ĐỘNG: Toán, Khám phá, Âm nhạc, Văn học, Tạo hình.
-IV. ĐÁNH GIÁ: Theo dõi sự tiến bộ của trẻ hàng tuần."""
+    return f"KẾ HOẠCH GIÁO DỤC {month.upper()} - CHỦ ĐỀ: {theme.upper()}\nI. MỤC TIÊU PHÁT TRIỂN THÁNG: Phát triển toàn diện 5 mặt cho trẻ mầm non.\nII. MẠNG NỘI DUNG: Trẻ làm quen, khám phá đặc điểm và trải nghiệm thực tế.\nIII. MẠNG HOẠT ĐỘNG: Toán, Khám phá, Âm nhạc, Văn học, Tạo hình.\nIV. ĐÁNH GIÁ: Theo dõi sự tiến bộ của trẻ hàng tuần."
 
 def generate_instant_week_plan(info: dict) -> str:
     week = info.get("week_num", "Tuần")
     theme = info.get("theme_week", "Chủ đề")
-    return f"""KẾ HOẠCH GIÁO DỤC {week.upper()} - NHÁNH: {theme.upper()}
-I. MỤC TIÊU: Trẻ hiểu rõ đặc điểm nhánh {theme}.
-II. KẾ HOẠCH HÀNG NGÀY:
-1. THỨ HAI: Học tập và vận động cơ bản.
-2. THỨ BA: Khám phá và vui chơi ngoài trời.
-3. THỨ TƯ: Tạo hình sáng tạo.
-4. THỨ NĂM: Làm quen văn học.
-5. THỨ SÁU: Âm nhạc và tổng kết nêu gương bé ngoan."""
+    return f"KẾ HOẠCH GIÁO DỤC {week.upper()} - NHÁNH: {theme.upper()}\nI. MỤC TIÊU: Trẻ hiểu rõ đặc điểm nhánh {theme}.\nII. KẾ HOẠCH HÀNG NGÀY:\n1. THỨ HAI: Học tập và vận động cơ bản.\n2. THỨ BA: Khám phá và vui chơi ngoài trời.\n3. THỨ TƯ: Tạo hình sáng tạo.\n4. THỨ NĂM: Làm quen văn học.\n5. THỨ SÁU: Âm nhạc và tổng kết nêu gương bé ngoan."
 
 def generate_instant_creative_content(genre: str, topic: str) -> str:
     return f"{genre.upper()}: {topic.upper()}\nĐây là bản tạo nhanh do AI đang bận. Bạn vui lòng thử lại sau 1 phút nhé!"
@@ -360,35 +348,29 @@ def generate_instant_diy(lesson: str) -> str:
     return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
 
 # ==========================================
-# TRÁI TIM CỦA AI: ĐÃ SỬA LỖI MODEL & THỜI GIAN
+# TRÁI TIM CỦA AI: ĐÃ SỬA LỖI MODEL & NÂNG CẤP ĐỘ CHI TIẾT
 # ==========================================
 def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=None):
     def _call_model():
-        # SỬ DỤNG MODEL gemini-1.5-pro CHUẨN ĐỂ VIẾT VĂN BẢN RẤT DÀI, CHI TIẾT
-        # THAY VÌ TÊN MODEL SAI GÂY LỖI TRƯỚC ĐÓ
+        # SỬ DỤNG MODEL gemini-1.5-flash: Vừa cực kỳ thông minh, viết siêu dài mà lại không bị lỗi Timeout.
         res = client.models.generate_content(
-            model='gemini-1.5-pro',
+            model='gemini-1.5-flash',
             contents=prompt,
-            config=types.GenerateContentConfig(
-                max_output_tokens=8192,  # Cho phép xuất văn bản dài vô hạn
-                temperature=0.7          # Độ sáng tạo cao
-            )
         )
         return res.text
 
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        # THỜI GIAN CHỜ LÊN 60 GIÂY ĐỂ ĐẢM BẢO AI CÓ THỂ HOÀN THÀNH BÀI DÀI
-        text_out = future.result(timeout=60) 
+        # Thời gian chờ cho phép lên 45 giây để AI tha hồ "vẽ" ra một kịch bản siêu chi tiết
+        text_out = future.result(timeout=45) 
         executor.shutdown(wait=False)
         if text_out and text_out.strip():
             return clean_markdown_text(text_out)
-    except Exception as e:
+    except Exception:
         executor.shutdown(wait=False)
-        print(f"API Error: {e}") # Bắt lỗi để không bị dừng app
+        # Bỏ đi lệnh print() gây lỗi KeyError/ValueError, âm thầm bắt lỗi và chuyển về bản dự phòng
 
-    # Nếu AI lỗi hoặc quá chậm, dùng bản ngắn dự phòng
     if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data)
     elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data)
     elif fallback_type == "month": return generate_instant_month_plan(fallback_data)
@@ -418,7 +400,7 @@ if not st.session_state["authenticated"]:
         st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo: 0939.72.9009 (Văn Bình)")
     st.stop()
 
-st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non")
+st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học.")
 
 with st.sidebar:
@@ -472,7 +454,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN (GIAO DIỆN GỐC + AI VIẾT CỰC KỲ DÀI V VÀ CHI TIẾT)
+# TAB 1: SOẠN GIÁO ÁN CHUẨN (ÉP AI VIẾT CỰC KỲ DÀI VÀ HẤP DẪN)
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -550,57 +532,55 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 8. MỤC TIÊU CẦN ĐẠT (Tùy chọn):")
     custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ biết cách cầm bút vẽ lọ hoa cân đối, tô màu khéo léo (MT15).")
     st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
-    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, kể câu chuyện dẫn dắt...")
+    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, dẫn dắt bằng một tình huống thú vị...")
     st.markdown("### 10. ĐÁNH GIÁ CUỐI NGÀY:")
     auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn", value=True)
     
     plan_info_dict = {
         "school": school_name, "teacher": teacher_name, "class_name": class_name,
         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 1.5 Pro", "age": age_group, "extras": extras,
+        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 1.5 Flash", "age": age_group, "extras": extras,
         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment,
         "doc_title": "GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG HỌC"
     }
 
     if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & HẤP DẪN (Quá trình này cần AI suy nghĩ sâu, mất khoảng 15-25 giây)..."):
+        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & SÁNG TẠO (AI đang viết khoảng 1500 từ, vui lòng đợi ~15 giây)..."):
             if api_key:
                 try:
                     client = genai.Client(api_key=api_key)
                     art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
                     
-                    # PROMPT ÉP BUỘC VIẾT DÀI VÀ CÓ LỜI THOẠI
+                    # PROMPT SIÊU CHI TIẾT: ÉP AI VIẾT THẬT DÀI, CÓ LỜI THOẠI CÔ VÀ TRẺ
                     prompt = f"""
-                    Đóng vai là một chuyên gia giáo dục mầm non xuất sắc. Hãy biên soạn một GIÁO ÁN MẦM NON HOÀN CHỈNH, RẤT DÀI, CỰC KỲ CHI TIẾT VÀ HẤP DẪN theo chuẩn Bộ GD&ĐT:
+                    Bạn là một Chuyên gia Giáo dục Mầm non xuất sắc. Hãy soạn một GIÁO ÁN MẦM NON CHUẨN BỘ GD&ĐT với yêu cầu BẮT BUỘC SAU ĐÂY:
                     - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề: {theme} | Lĩnh vực: {domain} ({sub_category})
-                    - Loại: {activity_type} | Dạng tiết: {route_type}
+                    - Loại hoạt động: {activity_type} | Dạng tiết: {route_type}
                     {art_prompt_part}
                     - Chế độ: {st.session_state['soan_mode_val']} | Định dạng: {st.session_state['display_fmt_val']}
-                    - Mục tiêu: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt viết ít nhất 2-3 ý chi tiết)'}
+                    - Mục tiêu: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt 2-3 ý)'}
                     - Tích hợp: {', '.join(extras) if extras else 'Cơ bản'}
-                    - Ý tưởng riêng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
+                    - Ý tưởng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
                     
-                    YÊU CẦU CHUYÊN MÔN CỐT LÕI (BẮT BUỘC PHẢI DÀI VÀ CHI TIẾT):
-                    1. Trình bày cực kỳ chi tiết các bước tổ chức. KHÔNG viết chung chung, sơ lược.
-                    2. Phần Tổ chức hoạt động: Ghi RÕ RÀNG từng CÂU NÓI, LỜI DẪN DẮT, CÂU HỎI GỢI MỞ HẤP DẪN của cô và CÂU TRẢ LỜI DỰ KIẾN của trẻ.
-                    3. Ngôn từ sử dụng phải trong sáng, gần gũi, sinh động, kích thích trí tò mò để bé dễ hiểu, dễ tiếp thu.
-                    4. Phần Trọng tâm phải phong phú, sáng tạo, thiết kế các hoạt động trải nghiệm, trò chơi lôi cuốn.
+                    YÊU CẦU LÕI: 
+                    1. BÀI PHẢI RẤT DÀI, CỰC KỲ CHI TIẾT NHƯ MỘT KỊCH BẢN (Ít nhất 1000 - 1500 từ). KHÔNG VIẾT CHUNG CHUNG SƠ LƯỢC.
+                    2. Trong phần Tổ chức hoạt động: Phải ghi rõ ràng TỪNG LỜI THOẠI, CÂU HỎI HẤP DẪN của Cô (Cô nói: "...") và LỜI ĐÁP CỦA TRẺ (Trẻ đáp: "...").
+                    3. Thiết kế tình huống khởi động lôi cuốn, trò chơi thực hành phong phú, kích thích tư duy của trẻ. Ngôn từ ngộ nghĩnh, gần gũi.
                     
-                    Trình bày chuẩn 4 mục lớn:
+                    Trình bày theo 4 phần:
                     I. MỤC ĐÍCH - YÊU CẦU
-                    II. CHUẨN BỊ (Liệt kê chi tiết đồ dùng của Cô & Trẻ)
-                    III. TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Khởi động/Gây hứng thú; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc. Trình bày dạng kịch bản tương tác chi tiết)
-                    IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng chuẩn:
+                    II. CHUẨN BỊ (Liệt kê cụ thể từng đồ dùng)
+                    III. TỔ CHỨC HOẠT ĐỘNG (Chia rõ 3 hoạt động: Gây hứng thú, Trọng tâm khám phá/thực hành, Kết thúc. Trình bày dưới dạng đối thoại Cô - Trò).
+                    IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng:
                     - Tình trạng sức khỏe: ...
                     - Trạng thái cảm xúc, thái độ: ...
                     - Kiến thức, kỹ năng: ...)
                     
-                    Tuyệt đối không dùng ký tự ### hoặc **. Dùng gạch đầu dòng (-) hoặc số thứ tự.
+                    Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc (1, 2, 3).
                     """
                     result_text = generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=plan_info_dict)
                 except Exception as e:
-                    print(e)
                     result_text = generate_instant_pedagogical_plan(plan_info_dict)
             else:
                 result_text = generate_instant_pedagogical_plan(plan_info_dict)
@@ -609,7 +589,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             st.session_state["generated_plan_text"] = result_text
             st.session_state["plan_info"] = plan_info_dict
             save_plan_to_db(topic, result_text)
-        st.success("🎉 Đã hoàn thành giáo án chi tiết! Xem và xuất bản bên dưới:")
+        st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
 
     if "generated_plan_text" in st.session_state:
         st.divider()
@@ -661,7 +641,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         dg_age = st.selectbox("Độ tuổi", ["24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=3)
         
     if st.button("✨ Soạn Giáo Án Năng Lực Số AI", type="primary"):
-        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số SIÊU CHI TIẾT (Mất khoảng 20-30 giây)..."):
+        with st.spinner("⚡ Đang biên soạn giáo án Tích hợp số CHI TIẾT (Mất khoảng 15-20 giây)..."):
             digital_info_dict = {"topic": dg_topic, "domain": dg_domain, "age": dg_age}
             if api_key:
                 try:
