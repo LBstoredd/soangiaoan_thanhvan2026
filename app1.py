@@ -321,7 +321,8 @@ Hoạt động 3: Kết thúc
 IV. ĐÁNH GIÁ CUỐI NGÀY
 - Tình trạng sức khỏe: 100% trẻ khỏe mạnh, tham gia tốt các hoạt động.
 - Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng tương tác tốt cùng cô và bạn.
-- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời."""
+- Kiến thức, kỹ năng: Đa số trẻ nắm được bài, một số trẻ nhút nhát đã được cô hỗ trợ kịp thời.
+(Lưu ý: Đây là bản giáo án mẫu sinh nhanh do AI quá tải, vui lòng thử lại sau vài giây để nhận kịch bản chi tiết)"""
     return clean_markdown_text(raw_plan)
 
 def generate_instant_digital_plan(info: dict) -> str:
@@ -358,23 +359,36 @@ def generate_instant_zalo(task_type: str, info_text: str) -> str:
 def generate_instant_diy(lesson: str) -> str:
     return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
 
-# === HÀM GỌI AI ĐÃ ĐƯỢC TỐI ƯU THỜI GIAN ĐỂ VIẾT CHI TIẾT TỐI ĐA ===
+# ==========================================
+# TRÁI TIM CỦA AI: ĐÃ SỬA LỖI MODEL & THỜI GIAN
+# ==========================================
 def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=None):
     def _call_model():
-        res = client.models.generate_content(model='gemini-3.8-flash', contents=prompt)
+        # SỬ DỤNG MODEL gemini-1.5-pro CHUẨN ĐỂ VIẾT VĂN BẢN RẤT DÀI, CHI TIẾT
+        # THAY VÌ TÊN MODEL SAI GÂY LỖI TRƯỚC ĐÓ
+        res = client.models.generate_content(
+            model='gemini-1.5-pro',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                max_output_tokens=8192,  # Cho phép xuất văn bản dài vô hạn
+                temperature=0.7          # Độ sáng tạo cao
+            )
+        )
         return res.text
 
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        # TĂNG THỜI GIAN CHỜ LÊN 40 GIÂY ĐỂ AI ĐỦ THỜI GIAN VIẾT GIÁO ÁN RẤT DÀI
-        text_out = future.result(timeout=40) 
+        # THỜI GIAN CHỜ LÊN 60 GIÂY ĐỂ ĐẢM BẢO AI CÓ THỂ HOÀN THÀNH BÀI DÀI
+        text_out = future.result(timeout=60) 
         executor.shutdown(wait=False)
         if text_out and text_out.strip():
             return clean_markdown_text(text_out)
-    except Exception:
+    except Exception as e:
         executor.shutdown(wait=False)
+        print(f"API Error: {e}") # Bắt lỗi để không bị dừng app
 
+    # Nếu AI lỗi hoặc quá chậm, dùng bản ngắn dự phòng
     if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data)
     elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data)
     elif fallback_type == "month": return generate_instant_month_plan(fallback_data)
@@ -385,7 +399,7 @@ def generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data
     return "Đã hoàn thành nội dung cho cô giáo!"
 
 # ==========================================
-# GIAO DIỆN ĐĂNG NHẬP & SIDEBAR
+# MÀN HÌNH ĐĂNG NHẬP & SIDEBAR
 # ==========================================
 if not st.session_state["authenticated"]:
     st.title("🔐 Xác Thực Sử Dụng Phần Mềm Mầm Non")
@@ -404,7 +418,7 @@ if not st.session_state["authenticated"]:
         st.info("💡 **Gói Thuê Phần Mềm:**\n- Giá: **100.000 VNĐ / Tháng**\n- Zalo: 0939.72.9009 (Văn Bình)")
     st.stop()
 
-st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non (LB Store)")
+st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học.")
 
 with st.sidebar:
@@ -458,7 +472,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN (BẢN GỐC TỐI QUA + NÂNG CẤP AI CHI TIẾT)
+# TAB 1: SOẠN GIÁO ÁN CHUẨN (GIAO DIỆN GỐC + AI VIẾT CỰC KỲ DÀI V VÀ CHI TIẾT)
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -536,27 +550,27 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.markdown("### 8. MỤC TIÊU CẦN ĐẠT (Tùy chọn):")
     custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ biết cách cầm bút vẽ lọ hoa cân đối, tô màu khéo léo (MT15).")
     st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
-    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới...")
+    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới, kể câu chuyện dẫn dắt...")
     st.markdown("### 10. ĐÁNH GIÁ CUỐI NGÀY:")
     auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn", value=True)
     
     plan_info_dict = {
         "school": school_name, "teacher": teacher_name, "class_name": class_name,
         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
-        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 3.8 Flash", "age": age_group, "extras": extras,
+        "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini 1.5 Pro", "age": age_group, "extras": extras,
         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
         "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment,
         "doc_title": "GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG HỌC"
     }
 
     if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & HẤP DẪN (Quá trình này cần AI suy nghĩ sâu, mất khoảng 20-30 giây)..."):
+        with st.spinner("⚡ Đang biên soạn kịch bản giáo án SIÊU CHI TIẾT & HẤP DẪN (Quá trình này cần AI suy nghĩ sâu, mất khoảng 15-25 giây)..."):
             if api_key:
                 try:
                     client = genai.Client(api_key=api_key)
                     art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if domain == "Thẩm mỹ" and sub_category == "Tạo hình" else ""
                     
-                    # PROMPT ĐÃ ĐƯỢC TỐI ƯU HÓA LẠI: ÉP BUỘC VIẾT DÀI, CHI TIẾT LỜI THOẠI
+                    # PROMPT ÉP BUỘC VIẾT DÀI VÀ CÓ LỜI THOẠI
                     prompt = f"""
                     Đóng vai là một chuyên gia giáo dục mầm non xuất sắc. Hãy biên soạn một GIÁO ÁN MẦM NON HOÀN CHỈNH, RẤT DÀI, CỰC KỲ CHI TIẾT VÀ HẤP DẪN theo chuẩn Bộ GD&ĐT:
                     - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề: {theme} | Lĩnh vực: {domain} ({sub_category})
@@ -569,13 +583,13 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     
                     YÊU CẦU CHUYÊN MÔN CỐT LÕI (BẮT BUỘC PHẢI DÀI VÀ CHI TIẾT):
                     1. Trình bày cực kỳ chi tiết các bước tổ chức. KHÔNG viết chung chung, sơ lược.
-                    2. Ghi RÕ RÀNG từng CÂU NÓI, LỜI DẪN DẮT, CÂU HỎI GỢI MỞ HẤP DẪN của cô và CÂU TRẢ LỜI DỰ KIẾN của trẻ.
+                    2. Phần Tổ chức hoạt động: Ghi RÕ RÀNG từng CÂU NÓI, LỜI DẪN DẮT, CÂU HỎI GỢI MỞ HẤP DẪN của cô và CÂU TRẢ LỜI DỰ KIẾN của trẻ.
                     3. Ngôn từ sử dụng phải trong sáng, gần gũi, sinh động, kích thích trí tò mò để bé dễ hiểu, dễ tiếp thu.
                     4. Phần Trọng tâm phải phong phú, sáng tạo, thiết kế các hoạt động trải nghiệm, trò chơi lôi cuốn.
                     
                     Trình bày chuẩn 4 mục lớn:
                     I. MỤC ĐÍCH - YÊU CẦU
-                    II. CHUẨN BỊ (Liệt kê chi tiết đồ dùng, học liệu, không gian)
+                    II. CHUẨN BỊ (Liệt kê chi tiết đồ dùng của Cô & Trẻ)
                     III. TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Khởi động/Gây hứng thú; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc. Trình bày dạng kịch bản tương tác chi tiết)
                     IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng chuẩn:
                     - Tình trạng sức khỏe: ...
@@ -585,7 +599,8 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     Tuyệt đối không dùng ký tự ### hoặc **. Dùng gạch đầu dòng (-) hoặc số thứ tự.
                     """
                     result_text = generate_fast_ai_content(client, prompt, fallback_type="plan", fallback_data=plan_info_dict)
-                except Exception:
+                except Exception as e:
+                    print(e)
                     result_text = generate_instant_pedagogical_plan(plan_info_dict)
             else:
                 result_text = generate_instant_pedagogical_plan(plan_info_dict)
@@ -603,7 +618,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         
         btn_col1, btn_col2 = st.columns([1, 2])
         with btn_col1:
-            docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, font_size_pt=current_font_size)
+            docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, custom_template=None, font_size_pt=current_font_size)
             with open(docx_file, "rb") as file:
                 st.download_button(label="📥 Tải File Word (.docx)", data=file, file_name=docx_file, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True)
         with btn_col2:
