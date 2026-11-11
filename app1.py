@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import json
 import time
@@ -20,6 +21,9 @@ import string
 # ==========================================
 st.set_page_config(page_title="Phần Mềm Trợ Lý Mầm Non Chuyên Sâu", layout="wide")
 
+# Đường dẫn cơ sở dữ liệu tuyệt đối
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mamnon_rag.db")
+
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 if "is_admin" not in st.session_state:
@@ -28,6 +32,8 @@ if "api_key_saved" not in st.session_state:
     st.session_state["api_key_saved"] = ""
 if "active_model_name" not in st.session_state:
     st.session_state["active_model_name"] = ""
+if "cached_plans" not in st.session_state:
+    st.session_state["cached_plans"] = []
 
 # ==========================================
 # CẤU HÌNH GIAO DIỆN THEME XANH MINT
@@ -201,24 +207,39 @@ def render_copy_and_print_buttons(text_content: str, doc_title: str, font_size_p
     components.html(component_code, height=48)
 
 # ==========================================
-# KHỞI TẠO DATABASE
+# KHỞI TẠO CƠ SỞ DỮ LIỆU & LƯU TRỮ AN TOÀN
 # ==========================================
 def init_db():
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
-        cursor.execute('''CREATE TABLE IF NOT EXISTS saved_plans (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-        cursor.execute('''CREATE TABLE IF NOT EXISTS licenses (id INTEGER PRIMARY KEY AUTOINCREMENT, license_key TEXT UNIQUE, customer_name TEXT, expires_at DATE, is_active INTEGER DEFAULT 1)''')
-        cursor.execute('''INSERT OR IGNORE INTO licenses (id, license_key, customer_name, expires_at, is_active) VALUES (1, 'LBSTORE2026', 'Admin Văn Bình (Master Admin)', '2027-12-31', 1)''')
+        cursor.execute("PRAGMA journal_mode=WAL;")
+        cursor.execute('''CREATE TABLE IF NOT EXISTS saved_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            title TEXT, 
+            content TEXT, 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS licenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            license_key TEXT UNIQUE, 
+            customer_name TEXT, 
+            expires_at DATE, 
+            is_active INTEGER DEFAULT 1
+        )''')
+        cursor.execute('''INSERT OR IGNORE INTO licenses (id, license_key, customer_name, expires_at, is_active) 
+                          VALUES (1, 'LBSTORE2026', 'Admin Văn Bình (Master Admin)', '2027-12-31', 1)''')
         conn.commit()
         conn.close()
-    except Exception: pass
+    except Exception as e:
+        pass
+
 init_db()
 
 def check_license(key):
     if key == 'LBSTORE2026': return True, "👑 Đăng nhập quyền Admin thành công!"
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
         cursor.execute("SELECT customer_name, expires_at, is_active FROM licenses WHERE license_key = ?", (key,))
         row = cursor.fetchone()
@@ -236,7 +257,7 @@ def create_new_license(customer_name, months):
     new_key = f"LB-{random_str}"
     expires_date = (datetime.now() + timedelta(days=30 * months)).strftime("%Y-%m-%d")
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
         cursor.execute("INSERT INTO licenses (license_key, customer_name, expires_at, is_active) VALUES (?, ?, ?, 1)", (new_key, customer_name, expires_date))
         conn.commit()
@@ -246,7 +267,7 @@ def create_new_license(customer_name, months):
 
 def get_all_licenses():
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
         cursor.execute("SELECT id, license_key, customer_name, expires_at, is_active FROM licenses ORDER BY id DESC")
         rows = cursor.fetchall()
@@ -254,158 +275,77 @@ def get_all_licenses():
         return rows
     except Exception: return []
 
-def save_plan_to_db(title, content_json):
+# LƯU KÉP: Vừa lưu SQLite vừa lưu Session Cache
+def save_plan_to_db(title, content_text):
+    created_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 1. Lưu vào Session Cache tức thì
+    if "cached_plans" not in st.session_state:
+        st.session_state["cached_plans"] = []
+    
+    plan_entry = {
+        "id": int(time.time() * 1000),
+        "title": title,
+        "content": content_text,
+        "created_at": created_time
+    }
+    # Đẩy lên đầu danh sách
+    st.session_state["cached_plans"].insert(0, plan_entry)
+    
+    # 2. Lưu vào SQLite
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO saved_plans (title, content) VALUES (?, ?)", (title, content_json))
+        cursor.execute("INSERT INTO saved_plans (title, content, created_at) VALUES (?, ?, ?)", (title, content_text, created_time))
         conn.commit()
         conn.close()
-    except Exception: pass
+        return True
+    except Exception:
+        return False
 
 def get_all_saved_plans():
+    db_rows = []
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, title, created_at FROM saved_plans ORDER BY id DESC")
-        rows = cursor.fetchall()
+        cursor.execute("SELECT id, title, content, created_at FROM saved_plans ORDER BY id DESC")
+        db_rows = cursor.fetchall()
         conn.close()
-        return rows
-    except Exception: return []
+    except Exception:
+        pass
 
-def get_plan_by_id(plan_id):
+    # Kết hợp SQLite và Session Cache (tránh trùng lặp)
+    combined = []
+    seen_titles = set()
+
+    # Ưu tiên các bài trong Session Cache hiện tại
+    for p in st.session_state.get("cached_plans", []):
+        combined.append((p["id"], p["title"], p["content"], p["created_at"]))
+        seen_titles.add(p["title"] + p["created_at"])
+
+    for row in db_rows:
+        r_id, r_title, r_content, r_time = row
+        key = r_title + str(r_time)
+        if key not in seen_titles:
+            combined.append((r_id, r_title, r_content, str(r_time)))
+            seen_titles.add(key)
+
+    return combined
+
+def delete_plan_by_id(plan_id):
+    # Xóa khỏi Session Cache
+    st.session_state["cached_plans"] = [p for p in st.session_state.get("cached_plans", []) if p["id"] != plan_id]
+    # Xóa khỏi SQLite
     try:
-        conn = sqlite3.connect('mamnon_rag.db', timeout=30)
+        conn = sqlite3.connect(DB_PATH, timeout=30)
         cursor = conn.cursor()
-        cursor.execute("SELECT title, content FROM saved_plans WHERE id = ?", (plan_id,))
-        row = cursor.fetchone()
+        cursor.execute("DELETE FROM saved_plans WHERE id = ?", (plan_id,))
+        conn.commit()
         conn.close()
-        return row
-    except Exception: return None
+    except Exception:
+        pass
 
 # =========================================================================
-# BỘ CỨU CÁNH CHUYÊN SÂU 1.500 TỪ (NẾU MẤT MẠNG VẪN DÙNG TỐT)
-# =========================================================================
-def generate_instant_pedagogical_plan(info: dict) -> str:
-    topic = info.get("topic", "Hoạt động khám phá").strip()
-    domain = info.get("domain", "Nhận thức")
-    sub_cat = info.get("sub_category", "Khám phá")
-    route = info.get("route_type", "Hoạt động chung")
-    age = info.get("age", "4-5 tuổi")
-    theme = info.get("theme", "Chủ đề quanh bé")
-    teacher = info.get("teacher", "Nguyễn Thị Thanh Vân").strip() or "Giáo viên"
-    school = info.get("school", "Trường Mầm Non Phước Thạnh").strip() or "Trường Mầm Non"
-    class_name = info.get("class_name", "Lớp Mẫu giáo Nhỡ").strip() or "Lớp Mẫu giáo"
-    extras_list = info.get("extras", [])
-    extras_str = ", ".join(extras_list) if extras_list else "Giáo dục kỹ năng sống và bảo vệ môi trường"
-    custom_ideas = info.get("custom_ideas", "").strip()
-    today_str = datetime.now().strftime("%d/%m/%Y")
-
-    raw_plan = f"""{school.upper()}
-Lớp: {class_name} | Độ tuổi: {age}
-GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG ({info.get('activity_type', 'Hoạt động học')})
-ĐỀ TÀI: {topic.upper()}
-Chủ đề lớn: {theme} | Lĩnh vực: {domain} ({sub_cat} - {route})
-Người soạn: {teacher} | Ngày dạy: {today_str}
-
-I. MỤC ĐÍCH - YÊU CẦU
-1. Kiến thức:
-- Trẻ nhận biết, gọi đúng tên và nêu được những đặc điểm nổi bật, cấu tạo cơ bản của nội dung bài học: {topic}.
-- Trẻ hiểu được lợi ích, ý nghĩa thực tế của {topic} đối với đời sống con người và môi trường xung quanh.
-- Trẻ nắm được quy trình và các bước tham gia hoạt động thực hành, trò chơi theo đúng hướng dẫn của cô giáo.
-2. Kỹ năng:
-- Rèn luyện kỹ năng quan sát có chủ đích, so sánh, phân loại và ghi nhớ các chi tiết đặc trưng.
-- Phát triển ngôn ngữ mạch lạc: Trẻ tự tin diễn đạt suy nghĩ, trả lời câu hỏi trọn vẹn câu, biết trao đổi cùng bạn.
-- Rèn luyện thao tác vận động tinh khéo léo, phối hợp tay - mắt nhịp nhàng trong hoạt động trải nghiệm thực tế.
-3. Thái độ:
-- Trẻ hào hứng, chủ động, tích cực tham gia vào từng hoạt động học tập và vui chơi.
-- Trẻ biết lắng nghe hiệu lệnh của cô, biết phối hợp nhóm và chia sẻ đồ dùng học tập cùng các bạn.
-- Lồng ghép giáo dục: {extras_str}; trẻ biết yêu quý sản phẩm lao động và giữ gìn vệ sinh lớp học.
-
-II. CHUẨN BỊ
-1. Đồ dùng của cô:
-- Giáo án điện tử thiết kế sinh động, slide hình ảnh, video tư liệu sắc nét liên quan đến {topic}.
-- Hệ thống âm thanh, loa bluetooth, nhạc không lời êm dịu và các bài hát vui nhộn theo chủ đề {theme}.
-- Đồ dùng trực quan vật thật / mô hình kích thước lớn phục vụ quan sát đàm thoại.{f' Ý tưởng riêng của cô: {custom_ideas}' if custom_ideas else ''}
-2. Đồ dùng của trẻ:
-- Bộ đồ dùng thực hành, học liệu đủ số lượng cho từng trẻ (khay đựng, thẻ hình, tranh mẫu, đồ chơi trải nghiệm).
-- Trang phục gọn gàng, tâm thế thoải mái, tâm lý tự tin sẵn sàng bước vào giờ học.
-3. Địa điểm - Không gian tổ chức:
-- Phòng học sạch sẽ, thoáng mát, đủ ánh sáng; bố trí đội hình chữ U hoặc vòng cung thuận tiện quan sát màn hình.
-
-III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG
-Hoạt động 1: Ổn định tổ chức, gây hứng thú (3 - 5 phút)
-- Cô tập trung trẻ lại quanh mình, mở nhạc giai điệu vui tươi theo chủ đề {theme} và cùng trẻ nhún nhảy:
-  + Cô nói: "Nhiệt liệt chào mừng tất cả các bé lớp {class_name} đến với tiết học kỳ diệu ngày hôm nay!"
-  + Trẻ đồng thanh đáp: "Chúng con chào cô ạ!"
-- Cô tạo tình huống bất ngờ với chiếc hộp quà bí mật:
-  + Cô nói: "Hôm nay, cô mang đến một món quà vô cùng đặc biệt. Các con thử đoán xem bên trong có điều bí mật gì nào?"
-  + Trẻ hào hứng phỏng đoán: "Dạ thưa cô là đồ chơi ạ / Là tranh ảnh ạ!"
-  + Cô nhẹ nhàng mở quà và giới thiệu biểu tượng của bài học: "Đó chính là những hình ảnh vô cùng thú vị về {topic}! Hôm nay cô con mình sẽ cùng nhau bước vào hành trình khám phá nhé!"
-
-Hoạt động 2: Nội dung trọng tâm (20 - 25 phút)
-* Bước 1: Khám phá trải nghiệm thực tế & Đàm thoại gợi mở:
-- Cô giới thiệu vật thật / tranh ảnh sinh động về {topic} cho cả lớp quan sát cận cảnh.
-- Cô gợi mở để trẻ tự do phát hiện bằng các giác quan (nhìn, nghe, chạm, sờ):
-  + Cô hỏi: "Các con có nhận xét gì về {topic}? Ai giỏi cho cô biết hình dáng, màu sắc và đặc điểm của nó nào?"
-  + Trẻ giơ tay trả lời: "Dạ con thấy có màu sắc đẹp ạ / Dạ con thấy nó rất quen thuộc ạ!"
-  + Cô hỏi tiếp: "Để hiểu rõ hơn về công dụng và sự phát triển của {topic}, các con hãy cùng hướng mắt lên màn hình quan sát đoạn phim ngắn này nhé!"
-- Sau khi xem video, cô đặt câu hỏi gợi mở tư duy logic:
-  + Cô hỏi: "Qua đoạn phim vừa rồi, con biết thêm điều gì mới? Nếu không có nó thì cuộc sống của chúng ta sẽ thế nào?"
-  + Trẻ suy nghĩ và tự tin trả lời theo cảm nhận.
-  + Cô chốt lại kiến thức chuẩn xác, diễn đạt ngắn gọn, dễ nhớ để trẻ khắc sâu bài học.
-
-* Bước 2: Trải nghiệm thực hành - Trẻ làm chủ hoạt động:
-- Cô chia trẻ về các nhóm nhỏ ngồi theo bàn đã chuẩn bị sẵn đồ dùng học tập.
-- Cô nêu rõ nhiệm vụ và làm mẫu thao tác rõ ràng, dứt khoát:
-  + Cô nói: "Bây giờ các kỹ sư nhí hãy cùng nhau thực hành thao tác sắp xếp, phân loại và tạo ra sản phẩm về {topic} nhé!"
-- Trẻ bắt đầu thực hiện bài tập. Cô đi từng bàn bao quát, quan sát kỹ năng của từng trẻ:
-  + Động viên, khích lệ những trẻ còn lúng túng hoặc nhút nhát.
-  + Gợi ý mở rộng để những trẻ khá, giỏi sáng tạo thêm các chi tiết mới lạ.
-
-* Bước 3: Trò chơi củng cố kiến thức:
-- Cô giới thiệu trò chơi vận động: 'Đội Nào Nhanh Nhất'.
-- Luật chơi: Mỗi lượt một bạn bật qua các vòng thể dục lên chọn đúng hình ảnh/đồ vật về {topic} đặt vào rổ của đội mình, sau đó chạy về đập tay vào bạn tiếp theo.
-- Cách chơi: Cô bật nhạc rộn ràng; 2 đội thi đua nhau trong thời gian 1 bản nhạc.
-- Trẻ chơi hào hứng 2 - 3 lượt. Cô cùng cả lớp kiểm tra kết quả, đếm số lượng và tuyên dương đội chiến thắng.
-
-Hoạt động 3: Kết thúc hoạt động (2 - 3 phút)
-- Cô tập trung trẻ lại, nhận xét chung về tinh thần học tập:
-  + Cô khen ngợi sự tập trung, sáng tạo và tinh thần hợp tác rất tốt của cả lớp hôm nay.
-  + Nhắc nhở giáo dục nhẹ nhàng: Các con nhớ giữ gìn đồ dùng, bảo vệ môi trường và biết yêu quý cuộc sống xung quanh.
-- Cho trẻ cùng cô thu dọn đồ dùng học tập gọn gàng, cất vào đúng nơi quy định và hát vang bài ca ra sân chơi.
-
-IV. ĐÁNH GIÁ CUỐI NGÀY
-- Tình trạng sức khỏe: 100% trẻ khỏe mạnh, thoải mái, tham gia tích cực các hoạt động từ đầu đến cuối tiết học.
-- Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng, tự tin phát biểu xây dựng bài và biết đoàn kết với bạn.
-- Kiến thức, kỹ năng: Đại đa số trẻ nắm vững nội dung bài dạy ({topic}), hoàn thành tốt yêu cầu thực hành; cô đã hỗ trợ kịp thời các trẻ còn chậm tiến bộ."""
-    return clean_markdown_text(raw_plan)
-
-def generate_instant_digital_plan(info: dict) -> str:
-    topic = info.get("topic", "Hoạt động số")
-    return generate_instant_pedagogical_plan({"topic": topic, "domain": "Phát triển nhận thức (Năng lực số)", "age": "5-6 tuổi"})
-
-def generate_instant_month_plan(info: dict) -> str:
-    month = info.get("month", "Tháng")
-    theme = info.get("theme", "Chủ đề")
-    return f"KẾ HOẠCH GIÁO DỤC {month.upper()} - CHỦ ĐỀ: {theme.upper()}\nI. MỤC TIÊU PHÁT TRIỂN THÁNG: Phát triển toàn diện 5 mặt cho trẻ mầm non.\nII. MẠNG NỘI DUNG: Trẻ làm quen, khám phá đặc điểm và trải nghiệm thực tế.\nIII. MẠNG HOẠT ĐỘNG: Toán, Khám phá, Âm nhạc, Văn học, Tạo hình.\nIV. ĐÁNH GIÁ: Theo dõi sự tiến bộ của trẻ hàng tuần."
-
-def generate_instant_week_plan(info: dict) -> str:
-    week = info.get("week_num", "Tuần")
-    theme = info.get("theme_week", "Chủ đề")
-    return f"KẾ HOẠCH GIÁO DỤC {week.upper()} - NHÁNH: {theme.upper()}\nI. MỤC TIÊU: Trẻ hiểu rõ đặc điểm nhánh {theme}.\nII. KẾ HOẠCH HÀNG NGÀY:\n1. THỨ HAI: Học tập và vận động cơ bản.\n2. THỨ BA: Khám phá và vui chơi ngoài trời.\n3. THỨ TƯ: Tạo hình sáng tạo.\n4. THỨ NĂM: Làm quen văn học.\n5. THỨ SÁU: Âm nhạc và tổng kết nêu gương bé ngoan."
-
-def generate_instant_creative_content(genre: str, topic: str) -> str:
-    return f"{genre.upper()}: {topic.upper()}\nĐây là bản tạo nhanh do AI đang bận. Bạn vui lòng thử lại sau 1 phút nhé!"
-
-def generate_instant_zalo(task_type: str, info_text: str) -> str:
-    return f"MẪU ZALO NHANH:\nKính gửi Phụ huynh, hôm nay lớp học về {info_text}. Các con rất ngoan và tích cực!"
-
-def generate_instant_diy(lesson: str) -> str:
-    return f"ĐỒ DÙNG DIY CHO: {lesson.upper()}\n1. Dùng bìa carton, nắp chai nhựa.\n2. Cắt dán và trang trí màu sắc đẹp mắt."
-
-# =========================================================================
-# GỌI GEMINI 3.5 FLASH LITE (TỐC ĐỘ 350 TỪ/GIÂY, CHỈ 5-7 GIÂY XONG BÀI DÀI)
+# GỌI GEMINI 3.5 FLASH LITE SIÊU TỐC ĐỘ (KẾT NỐI V1BETA)
 # =========================================================================
 def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=None):
     if not api_key or not api_key.strip():
@@ -415,16 +355,12 @@ def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_dat
     text_out = ""
     
     def _call_model():
-        # Cổng v1beta bắt buộc của Google GenAI SDK
         client = genai.Client(
             api_key=api_key.strip(),
             http_options=types.HttpOptions(api_version='v1beta')
         )
-        
-        # Thử gemini-3.5-flash-lite (siêu tốc độ), nếu không có thì thử gemini-3.8-flash
         for m_name in ['gemini-3.5-flash-lite', 'gemini-3.8-flash']:
             try:
-                # Tuyệt đối không chỉnh temperature vì Gemini 3.x sẽ bị treo vòng lặp
                 res = client.models.generate_content(
                     model=m_name,
                     contents=prompt
@@ -438,7 +374,6 @@ def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_dat
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        # Giới hạn 25 giây, không bao giờ để Streamlit bị đơ 10 phút
         text_out = future.result(timeout=25) 
     except FuturesTimeoutError:
         error_msg = "Thời gian phản hồi của AI vượt quá 25 giây."
@@ -452,11 +387,6 @@ def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_dat
 
     if fallback_type == "plan": return generate_instant_pedagogical_plan(fallback_data), error_msg
     elif fallback_type == "digital": return generate_instant_digital_plan(fallback_data), error_msg
-    elif fallback_type == "month": return generate_instant_month_plan(fallback_data), error_msg
-    elif fallback_type == "week": return generate_instant_week_plan(fallback_data), error_msg
-    elif fallback_type == "creative": return generate_instant_creative_content(fallback_data.get("genre", ""), fallback_data.get("topic", "")), error_msg
-    elif fallback_type == "zalo": return generate_instant_zalo(fallback_data.get("type", ""), fallback_data.get("info", "")), error_msg
-    elif fallback_type == "diy": return generate_instant_diy(fallback_data.get("lesson", "")), error_msg
     return generate_instant_pedagogical_plan(fallback_data), error_msg
 
 # ==========================================
@@ -482,15 +412,28 @@ if not st.session_state["authenticated"]:
 st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non")
 st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học.")
 
+# Đếm tổng số bài đã lưu
+saved_plans_count = len(get_all_saved_plans())
+
 with st.sidebar:
     st.markdown("### 📌 Danh Mục Tính Năng")
     app_mode = st.radio("Chọn tác vụ:", [
-        "👑 Quản Lý Khách Thuê (Admin)", "📝 Soạn Giáo Án Chuẩn", "💻 Tích Hợp Năng Lực Số",
-        "🗓️ Kế Hoạch & Sổ Chủ Đề", "🎯 Trò Chơi & Đố Vui", "💬 Sổ Liên Lạc & Zalo", 
-        "✂️ Gợi Ý Đồ Dùng DIY", "📚 Kho Lịch Sử Giáo Án"
+        "👑 Quản Lý Khách Thuê (Admin)", 
+        "📝 Soạn Giáo Án Chuẩn", 
+        "💻 Tích Hợp Năng Lực Số",
+        "🗓️ Kế Hoạch & Sổ Chủ Đề", 
+        "🎯 Trò Chơi & Đố Vui", 
+        "💬 Sổ Liên Lạc & Zalo", 
+        "✂️ Gợi Ý Đồ Dùng DIY", 
+        f"📚 Kho Lịch Sử Giáo Án ({saved_plans_count} bài)"
     ] if st.session_state["is_admin"] else [
-        "📝 Soạn Giáo Án Chuẩn", "💻 Tích Hợp Năng Lực Số", "🗓️ Kế Hoạch & Sổ Chủ Đề", 
-        "🎯 Trò Chơi & Đố Vui", "💬 Sổ Liên Lạc & Zalo", "✂️ Gợi Ý Đồ Dùng DIY", "📚 Kho Lịch Sử Giáo Án"
+        "📝 Soạn Giáo Án Chuẩn", 
+        "💻 Tích Hợp Năng Lực Số", 
+        "🗓️ Kế Hoạch & Sổ Chủ Đề", 
+        "🎯 Trò Chơi & Đố Vui", 
+        "💬 Sổ Liên Lạc & Zalo", 
+        "✂️ Gợi Ý Đồ Dùng DIY", 
+        f"📚 Kho Lịch Sử Giáo Án ({saved_plans_count} bài)"
     ])
     st.divider()
     st.header("⚙️ Cấu hình hệ thống")
@@ -688,12 +631,14 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             result_text, err = generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=plan_info_dict)
             
             if err:
-                st.warning(f"⚠️ **Thông báo:** {err}\n\n👉 Ứng dụng đã tự động áp dụng kịch bản mầm non chuẩn 1.500 từ hoàn chỉnh bên dưới để cô giáo sử dụng ngay!")
+                st.warning(f"⚠️ **Thông báo:** {err}\n\n👉 Đang sử dụng kịch bản mầm non đầy đủ 1.500 từ chuẩn chỉnh.")
             else:
                 st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
 
             st.session_state["generated_plan_text"] = result_text
             st.session_state["plan_info"] = plan_info_dict
+            
+            # Lưu đồng bộ vào Kho Lịch Sử (Lưu kép)
             save_plan_to_db(topic, result_text)
 
     if "generated_plan_text" in st.session_state:
@@ -760,6 +705,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
             else:
                 st.success("🎉 Đã hoàn thành Giáo án Tích hợp Năng lực số!")
             st.session_state["saved_digital_plan"] = res
+            save_plan_to_db(f"[Năng Lực Số] {dg_topic}", res)
 
     if "saved_digital_plan" in st.session_state:
         st.divider()
@@ -785,6 +731,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 res, err = generate_fast_ai_content(api_key, f"Lập kế hoạch giáo dục tháng {m_month_val} chủ đề {m_theme_val} cho {m_age}. Thật dài và chi tiết. Không dùng dấu ###.", fallback_type="month", fallback_data=info_m)
                 if err: st.warning(f"⚠️ {err}")
                 st.session_state["saved_month_plan"] = res
+                save_plan_to_db(f"[Tháng] {m_theme_val}", res)
         if "saved_month_plan" in st.session_state:
             st.markdown(format_text_to_standard_html(st.session_state["saved_month_plan"], 14), unsafe_allow_html=True)
     
@@ -799,6 +746,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                 res, err = generate_fast_ai_content(api_key, f"Lập kế hoạch tuần {w_week_num} chủ đề {w_theme_week} cho trẻ {w_age2}. Phân bổ chi tiết từ Thứ 2 đến Thứ 6. Dài và chi tiết. Không dùng dấu ###.", fallback_type="week", fallback_data=info_w)
                 if err: st.warning(f"⚠️ {err}")
                 st.session_state["saved_week_plan"] = res
+                save_plan_to_db(f"[Tuần] {w_theme_week}", res)
         if "saved_week_plan" in st.session_state:
             st.markdown(format_text_to_standard_html(st.session_state["saved_week_plan"], 14), unsafe_allow_html=True)
 
@@ -834,19 +782,47 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
             if err: st.warning(f"⚠️ {err}")
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
-elif app_mode == "📚 Kho Lịch Sử Giáo Án":
+# =========================================================================
+# TAB KHO LỊCH SỬ GIÁO ÁN (GIAO DIỆN MỚI CÓ PREVIEW, TẢI WORD VÀ XÓA BÀI)
+# =========================================================================
+elif "📚 Kho Lịch Sử Giáo Án" in app_mode:
     st.subheader("📚 Kho Lưu Trữ Giáo Án Đã Soạn")
-    plans = get_all_saved_plans()
-    if not plans: st.info("Chưa có giáo án nào được lưu trữ trong hệ thống.")
+    st.caption("Toàn bộ các giáo án, kế hoạch cô vừa soạn sẽ được tự động lưu trữ tại đây để mở lại hoặc tải về máy.")
+    
+    all_plans = get_all_saved_plans()
+    
+    if not all_plans:
+        st.info("Chưa có giáo án nào được lưu trữ trong hệ thống.")
     else:
-        for p_id, p_title, p_time in plans:
-            with st.container():
-                cols = st.columns([4, 2, 2])
-                cols[0].markdown(f"**{p_title}** *(Lưu lúc: {p_time})*")
-                if cols[1].button("Tải lại Word", key=f"load_{p_id}"):
-                    row = get_plan_by_id(p_id)
-                    if row:
-                        title_db, content_db = row
-                        f_path = export_docx_from_text(content_db, {"topic": title_db})
-                        with open(f_path, "rb") as f_dl:
-                            cols[2].download_button("📥 Tải File", data=f_dl, file_name=f_path, key=f"dl_{p_id}")
+        st.success(f"📂 Hiện có tổng cộng **{len(all_plans)} bài** trong kho của bạn:")
+        
+        for p_id, p_title, p_content, p_time in all_plans:
+            with st.expander(f"📖 **{p_title}**  *(Lưu lúc: {p_time})*"):
+                col_k1, col_k2, col_k3 = st.columns([2, 1, 1])
+                
+                with col_k1:
+                    st.markdown(f"**Tên bài dạy:** {p_title}")
+                    st.caption(f"Thời gian: {p_time}")
+                
+                with col_k2:
+                    docx_path = export_docx_from_text(p_content, {"topic": p_title})
+                    with open(docx_path, "rb") as f_down:
+                        st.download_button(
+                            label="📥 Tải File Word (.docx)",
+                            data=f_down,
+                            file_name=docx_path,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            type="primary",
+                            key=f"down_btn_{p_id}",
+                            use_container_width=True
+                        )
+                
+                with col_k3:
+                    if st.button("🗑️ Xóa Bài Này", key=f"del_btn_{p_id}", use_container_width=True):
+                        delete_plan_by_id(p_id)
+                        st.toast("Đã xóa bài thành công!")
+                        st.rerun()
+                
+                st.divider()
+                st.markdown("##### 📄 Nội dung chi tiết bài dạy:")
+                st.markdown(f'<div style="background-color: #ffffff; color: #000000; font-family: \'Times New Roman\', Times, serif; font-size: 13pt; line-height: 1.5; padding: 25px 35px; border-radius: 8px; border: 1px solid #B2E5D6; text-align: justify;">{format_text_to_standard_html(p_content, 13)}</div>', unsafe_allow_html=True)
