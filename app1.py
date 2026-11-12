@@ -10,16 +10,18 @@ import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from datetime import datetime, timedelta
 import random
 import string
 
 try:
     from pptx import Presentation
-    from pptx.util import Inches, Pt as PptxPt
-    from pptx.dml.color import RGBColor
+    from pptx.util import Inches as PptxInches, Pt as PptxPt
+    from pptx.dml.color import RGBColor as PptxRGBColor
     from pptx.enum.text import PP_ALIGN
     HAS_PPTX = True
 except ImportError:
@@ -71,7 +73,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# BỘ LỌC VÀ ĐỊNH DẠNG VĂN BẢN CHUẨN
+# BỘ LỌC, KẺ BẢNG HTML & XUẤT WORD CHUẨN ĐẸP
 # ==========================================
 def clean_markdown_text(raw_text: str) -> str:
     if not raw_text: return ""
@@ -81,6 +83,11 @@ def clean_markdown_text(raw_text: str) -> str:
         stripped = line.strip()
         if not stripped:
             cleaned_lines.append("")
+            continue
+        # Giữ nguyên các dòng bảng bắt đầu và kết thúc bằng dấu |
+        if stripped.startswith('|') and stripped.endswith('|'):
+            l_tab = stripped.replace('**', '').replace('###', '')
+            cleaned_lines.append(l_tab)
             continue
         if re.match(r'^[-*_]{3,}$', stripped): continue
         l = line
@@ -105,22 +112,28 @@ FULL_BOLD_PREFIXES = (
 LABEL_BOLD_PREFIXES = (
     '- Tình trạng sức khỏe:', '- Trạng thái cảm xúc, thái độ:', '-Trạng thái cảm xúc, thái độ:',
     '- Trạng thái cảm xúc:', '- Kiến thức, kỹ năng:', '- Kiến thức, kỹ năng & Năng lực số:',
-    '1. Kiến thức:', '2. Kỹ năng:', '3. Thái độ:', '2. Kỹ năng & Năng lực số:',
+    '1. Kiến thức:', '2. Kỹ năng:', '3. Thái độ:', '4. Năng lực hình thành:', '2. Kỹ năng & Năng lực số:',
     '1. Mục tiêu trọng tâm & Năng lực số:', '1. Đồ dùng của cô:', '2. Đồ dùng của trẻ:',
-    '3. Không gian tổ chức:', '1. Mục đích - Yêu cầu:', '2. Chuẩn bị:', '3. Cách chơi:', '4. Luật chơi:',
-    '- Bước 1:', '- Bước 2:', '- Bước 3:', '- Bước 4:', '* Bước 1:', '* Bước 2:', '* Bước 3:', '* Bước 4:',
-    '- Khởi động:', '- Trọng động:', '- Hồi tĩnh:', '* Khởi động:', '* Trọng động:', '* Hồi tĩnh:',
-    'a) ', 'b) ', 'c) ', '- Đón trẻ & Thể dục sáng:', '- Hoạt động học:', '- Hoạt động ngoài trời:',
-    '- Hoạt động chơi ở các góc:', '- Hoạt động chiều:', '- Thể chất:', '- Nhận thức:', '- Ngôn ngữ:',
-    '- Tình cảm - KNXH:', '- Thẩm mỹ:', '- Góc Phân vai:', '- Góc Xây dựng', '- Góc Nghệ thuật',
-    '- Góc Tạo hình:', '- Góc Học tập', '- Góc Âm nhạc:', '- Góc Khám phá', '- Tuần 1:', '- Tuần 2:',
-    '- Tuần 3:', '- Tuần 4:', '- Tuần 5:', 'Lớp:', 'Chủ đề:', 'Người soạn:', 'Thời gian thực hiện:',
-    'Loại hoạt động:', 'Hướng tiếp cận:', '- Thời lượng:', '- Hình ảnh:', '- Lời thoại:', '- Âm thanh:',
-    '- Prompt tiếng Anh:', '- Câu hỏi:', '- Đáp án đúng:', '- Hiệu ứng:'
+    '3. Môi trường & An toàn:', '3. Không gian tổ chức:', '1. Mục đích - Yêu cầu:', '2. Chuẩn bị:',
+    '3. Cách chơi:', '4. Luật chơi:', '- Bước 1:', '- Bước 2:', '- Bước 3:', '- Bước 4:',
+    '* Bước 1:', '* Bước 2:', '* Bước 3:', '* Bước 4:', '- Khởi động:', '- Trọng động:', '- Hồi tĩnh:',
+    '* Khởi động:', '* Trọng động:', '* Hồi tĩnh:', 'a) ', 'b) ', 'c) ', '- Đón trẻ & Thể dục sáng:',
+    '- Hoạt động học:', '- Hoạt động ngoài trời:', '- Hoạt động chơi ở các góc:', '- Hoạt động chiều:',
+    '- Thể chất:', '- Nhận thức:', '- Ngôn ngữ:', '- Tình cảm - KNXH:', '- Thẩm mỹ:',
+    '- Góc Phân vai:', '- Góc Xây dựng', '- Góc Nghệ thuật', '- Góc Tạo hình:', '- Góc Học tập',
+    '- Góc Âm nhạc:', '- Góc Khám phá', '- Tuần 1:', '- Tuần 2:', '- Tuần 3:', '- Tuần 4:', '- Tuần 5:',
+    'Lớp:', 'Chủ đề:', 'Lĩnh vực phát triển:', 'Tên hoạt động:', 'Độ tuổi:', 'Thời lượng:',
+    'Hình thức tổ chức:', 'Mức độ tích hợp:', 'Người soạn:', 'Thời gian thực hiện:', 'Loại hoạt động:',
+    'Hướng tiếp cận:', '- Thời lượng:', '- Hình ảnh:', '- Lời thoại:', '- Âm thanh:',
+    '- Prompt tiếng Anh:', '- Câu hỏi:', '- Đáp án đúng:', '- Hiệu ứng:',
+    '- Tư duy:', '- Giao tiếp:', '- Hợp tác:', '- Giải quyết vấn đề:'
 )
 
+def is_roman_section(line_s: str) -> bool:
+    return bool(re.match(r'^(I|II|III|IV|V|VI|VII)\.\s', line_s))
+
 def is_full_bold_heading(line_s: str) -> bool:
-    if re.match(r'^(I|II|III|IV|V|VI|VII)\.\s', line_s): return True
+    if is_roman_section(line_s): return True
     if line_s.startswith(FULL_BOLD_PREFIXES): return True
     if line_s.isupper() and len(line_s) > 5: return True
     return False
@@ -128,29 +141,129 @@ def is_full_bold_heading(line_s: str) -> bool:
 def should_bold_label_before_colon(line_s: str) -> bool:
     if ':' not in line_s: return False
     if line_s.startswith(LABEL_BOLD_PREFIXES): return True
-    if re.match(r'^(\d+\.|[-+])\s+[^:]{2,42}:', line_s): return True
+    if re.match(r'^(\d+\.|[-+*])\s+[^:]{2,45}:', line_s): return True
+    if re.match(r'^[A-Za-zÀ-ỹ\s\(\)\-&]{3,38}:', line_s): return True
     return False
+
+def is_markdown_separator_row(cells: list) -> bool:
+    return all(re.match(r'^[-:\s]+$', c) for c in cells if c.strip() != '')
+
+def format_cell_lines_html(cell_raw: str, font_size_pt: int) -> str:
+    # Tách các dòng bên trong ô bảng thông qua <br> hoặc \n
+    parts = re.split(r'<br\s*/?>|\n', cell_raw)
+    out = []
+    for part in parts:
+        s = part.strip()
+        if not s: continue
+        if re.match(r'^\d+\.\s', s) or s.startswith(('Bước ', '* Bước ')):
+            out.append(f'<div style="margin-bottom: 3pt;"><b>{html.escape(s)}</b></div>')
+        elif ':' in s and (s.startswith(('- Cô ', '+ Cô ', 'Cô ', '- Trẻ ', '+ Trẻ ', 'Trẻ ', '+ Đố:', '+ Hỏi:', '+ Khơi:', '- Đố:', '- Hỏi:', '- Khơi:', '- Luật chơi:', '- Cách chơi:', '- Với trẻ ')) or re.match(r'^[-+*]?\s*[^:]{2,32}:', s)):
+            idx = s.find(':')
+            b_part = html.escape(s[:idx + 1])
+            r_part = html.escape(s[idx + 1:])
+            out.append(f'<div style="margin-bottom: 2pt;"><b>{b_part}</b>{r_part}</div>')
+        else:
+            out.append(f'<div style="margin-bottom: 2pt;">{html.escape(s)}</div>')
+    return "".join(out) if out else html.escape(cell_raw)
+
+def render_html_table(table_lines: list, font_size_pt: int) -> str:
+    parsed_rows = []
+    for ln in table_lines:
+        inner = ln.strip().strip('|')
+        cells = [c.strip() for c in inner.split('|')]
+        if not is_markdown_separator_row(cells):
+            parsed_rows.append(cells)
+    if not parsed_rows:
+        return ""
+
+    num_cols = max(len(r) for r in parsed_rows)
+    if num_cols == 4:
+        col_widths = ["11%", "41%", "26%", "22%"]
+    elif num_cols == 3:
+        col_widths = ["12%", "52%", "36%"]
+    elif num_cols == 2:
+        col_widths = ["55%", "45%"]
+    else:
+        col_widths = [f"{int(100/num_cols)}%"] * num_cols
+
+    html_out = [
+        f'<table style="width: 100%; border-collapse: collapse; margin: 8pt 0 12pt 0; font-family: \'Times New Roman\', Times, serif; font-size: {font_size_pt}pt; line-height: 1.45; color: #000000;">'
+    ]
+    for r_idx, row in enumerate(parsed_rows):
+        while len(row) < num_cols:
+            row.append("")
+        html_out.append("<tr>")
+        for c_idx, cell_val in enumerate(row[:num_cols]):
+            w_attr = f"width: {col_widths[c_idx]};" if c_idx < len(col_widths) else ""
+            if r_idx == 0:
+                html_out.append(
+                    f'<th style="{w_attr} border: 1px solid #2E7D32; background-color: #E6F7F2; color: #004D40; font-weight: bold; text-align: center; padding: 8pt 6pt; vertical-align: middle;">{html.escape(cell_val)}</th>'
+                )
+            else:
+                align_style = "text-align: center; font-weight: bold;" if (c_idx == 0 and num_cols >= 3) else "text-align: left;"
+                cell_inner_html = format_cell_lines_html(cell_val, font_size_pt)
+                html_out.append(
+                    f'<td style="{w_attr} border: 1px solid #475569; padding: 7pt 8pt; vertical-align: top; {align_style}">{cell_inner_html}</td>'
+                )
+        html_out.append("</tr>")
+    html_out.append("</table>")
+    return "".join(html_out)
 
 def format_text_to_standard_html(text_content: str, font_size_pt: int = 14) -> str:
     html_paragraphs = []
+    table_buffer = []
+
+    def flush_table():
+        nonlocal table_buffer
+        if table_buffer:
+            html_paragraphs.append(render_html_table(table_buffer, font_size_pt))
+            table_buffer = []
+
     for raw_line in text_content.split('\n'):
         line_s = raw_line.strip()
-        if not line_s:
-            html_paragraphs.append('<div style="height: 6pt;"></div>')
+        if line_s.startswith('|') and line_s.endswith('|') and line_s.count('|') >= 2:
+            table_buffer.append(line_s)
             continue
-        p_style = f"font-family: 'Times New Roman', Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; text-align: justify; margin: 0 0 4pt 0; color: #000000;"
-        if is_full_bold_heading(line_s):
+        else:
+            flush_table()
+
+        if not line_s:
+            html_paragraphs.append('<div style="height: 5pt;"></div>')
+            continue
+
+        if is_roman_section(line_s):
             escaped = html.escape(line_s)
+            html_paragraphs.append(
+                f'<div style="border-left: 5px solid #00897B; background-color: #F0FAF8; padding: 5pt 10pt; margin: 10pt 0 6pt 0; font-family: \'Times New Roman\', Times, serif; font-size: {font_size_pt + 1}pt; font-weight: bold; color: #004D40;">{escaped}</div>'
+            )
+        elif line_s.startswith(('GIÁO ÁN', 'KẾ HOẠCH')):
+            escaped = html.escape(line_s)
+            html_paragraphs.append(
+                f'<p style="font-family: \'Times New Roman\', Times, serif; font-size: {font_size_pt + 2}pt; font-weight: bold; text-align: center; margin: 4pt 0 8pt 0; color: #000000;">{escaped}</p>'
+            )
+        elif is_full_bold_heading(line_s):
+            escaped = html.escape(line_s)
+            p_style = f"font-family: 'Times New Roman', Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; text-align: justify; margin: 4pt 0; color: #000000;"
             html_paragraphs.append(f'<p style="{p_style}"><b>{escaped}</b></p>')
         elif should_bold_label_before_colon(line_s):
             idx = line_s.find(':')
             label_part = html.escape(line_s[:idx + 1])
             rest_part = html.escape(line_s[idx + 1:])
+            p_style = f"font-family: 'Times New Roman', Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; text-align: justify; margin: 0 0 4pt 0; color: #000000;"
             html_paragraphs.append(f'<p style="{p_style}"><b>{label_part}</b>{rest_part}</p>')
         else:
             escaped = html.escape(line_s)
+            p_style = f"font-family: 'Times New Roman', Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; text-align: justify; margin: 0 0 4pt 0; color: #000000;"
             html_paragraphs.append(f'<p style="{p_style}">{escaped}</p>')
+
+    flush_table()
     return "".join(html_paragraphs)
+
+def set_cell_shading(cell, color_hex: str):
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:fill'), color_hex)
+    tcPr.append(shd)
 
 def export_docx_from_text(text_content: str, info: dict, custom_template=None, font_size_pt=13, prefix_name="GiaoAn"):
     if custom_template: doc = Document(custom_template)
@@ -158,12 +271,101 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None, f
     style = doc.styles['Normal']
     style.font.name = 'Times New Roman'
     style.font.size = Pt(font_size_pt)
-    
+
+    table_buffer = []
+
+    def flush_docx_table():
+        nonlocal table_buffer
+        if not table_buffer:
+            return
+        parsed_rows = []
+        for ln in table_buffer:
+            inner = ln.strip().strip('|')
+            cells = [c.strip() for c in inner.split('|')]
+            if not is_markdown_separator_row(cells):
+                parsed_rows.append(cells)
+        table_buffer = []
+        if not parsed_rows:
+            return
+
+        num_cols = max(len(r) for r in parsed_rows)
+        tbl = doc.add_table(rows=len(parsed_rows), cols=num_cols)
+        tbl.style = 'Table Grid'
+
+        if num_cols == 4:
+            widths = [Inches(0.85), Inches(2.75), Inches(1.65), Inches(1.45)]
+        elif num_cols == 3:
+            widths = [Inches(0.9), Inches(3.4), Inches(2.4)]
+        elif num_cols == 2:
+            widths = [Inches(3.6), Inches(3.1)]
+        else:
+            widths = [Inches(6.7 / num_cols)] * num_cols
+
+        for r_idx, row in enumerate(parsed_rows):
+            while len(row) < num_cols:
+                row.append("")
+            for c_idx in range(num_cols):
+                cell = tbl.cell(r_idx, c_idx)
+                if c_idx < len(widths):
+                    cell.width = widths[c_idx]
+                cell_text = row[c_idx]
+                lines_in_cell = [x.strip() for x in re.split(r'<br\s*/?>|\n', cell_text) if x.strip()]
+                if not lines_in_cell:
+                    lines_in_cell = [""]
+
+                if r_idx == 0:
+                    set_cell_shading(cell, "E6F7F2")
+                    p0 = cell.paragraphs[0]
+                    p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p0.paragraph_format.space_after = Pt(2)
+                    run0 = p0.add_run(lines_in_cell[0])
+                    run0.bold = True
+                    run0.font.name = 'Times New Roman'
+                    run0.font.size = Pt(font_size_pt)
+                else:
+                    for l_i, l_str in enumerate(lines_in_cell):
+                        p_c = cell.paragraphs[0] if l_i == 0 else cell.add_paragraph()
+                        p_c.paragraph_format.space_after = Pt(2)
+                        p_c.paragraph_format.line_spacing = 1.2
+                        if c_idx == 0 and num_cols >= 3:
+                            p_c.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                            r_c = p_c.add_run(l_str)
+                            r_c.bold = True
+                            r_c.font.name = 'Times New Roman'
+                            r_c.font.size = Pt(font_size_pt)
+                        elif re.match(r'^\d+\.\s', l_str) or l_str.startswith(('Bước ', '* Bước ')):
+                            r_c = p_c.add_run(l_str)
+                            r_c.bold = True
+                            r_c.font.name = 'Times New Roman'
+                            r_c.font.size = Pt(font_size_pt)
+                        elif ':' in l_str and (l_str.startswith(('- Cô ', '+ Cô ', 'Cô ', '- Trẻ ', '+ Trẻ ', 'Trẻ ', '+ Đố:', '+ Hỏi:', '+ Khơi:', '- Đố:', '- Hỏi:', '- Khơi:', '- Luật chơi:', '- Cách chơi:', '- Với trẻ ')) or re.match(r'^[-+*]?\s*[^:]{2,32}:', l_str)):
+                            idx = l_str.find(':')
+                            r_b = p_c.add_run(l_str[:idx + 1])
+                            r_b.bold = True
+                            r_b.font.name = 'Times New Roman'
+                            r_b.font.size = Pt(font_size_pt)
+                            r_n = p_c.add_run(l_str[idx + 1:])
+                            r_n.font.name = 'Times New Roman'
+                            r_n.font.size = Pt(font_size_pt)
+                        else:
+                            r_c = p_c.add_run(l_str)
+                            r_c.font.name = 'Times New Roman'
+                            r_c.font.size = Pt(font_size_pt)
+
     for raw_line in text_content.split('\n'):
         line_s = raw_line.strip()
+        if line_s.startswith('|') and line_s.endswith('|') and line_s.count('|') >= 2:
+            table_buffer.append(line_s)
+            continue
+        else:
+            flush_docx_table()
+
         if not line_s: continue
         p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        if line_s.startswith(('GIÁO ÁN', 'KẾ HOẠCH')):
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        else:
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         p.paragraph_format.space_after = Pt(4)
         p.paragraph_format.line_spacing = 1.3
         
@@ -171,7 +373,7 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None, f
             run = p.add_run(line_s)
             run.bold = True
             run.font.name = 'Times New Roman'
-            run.font.size = Pt(font_size_pt)
+            run.font.size = Pt(font_size_pt + (1 if line_s.startswith(('GIÁO ÁN', 'KẾ HOẠCH')) else 0))
         elif should_bold_label_before_colon(line_s):
             idx = line_s.find(':')
             label_part = line_s[:idx + 1]
@@ -188,6 +390,8 @@ def export_docx_from_text(text_content: str, info: dict, custom_template=None, f
             run = p.add_run(line_s)
             run.font.name = 'Times New Roman'
             run.font.size = Pt(font_size_pt)
+
+    flush_docx_table()
             
     safe_topic = "".join(c if c.isalnum() else "_" for c in info.get('topic', 'GiaoAn'))[:40]
     filename = f"{prefix_name}_{safe_topic}.docx"
@@ -198,17 +402,17 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
     if not HAS_PPTX:
         return ""
     prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    prs.slide_width = PptxInches(13.333)
+    prs.slide_height = PptxInches(7.5)
     blank_layout = prs.slide_layouts[6]
 
     slide1 = prs.slides.add_slide(blank_layout)
     bg1 = slide1.background
     fill1 = bg1.fill
     fill1.solid()
-    fill1.fore_color.rgb = RGBColor(230, 247, 242)
+    fill1.fore_color.rgb = PptxRGBColor(230, 247, 242)
 
-    tb1 = slide1.shapes.add_textbox(Inches(1), Inches(2), Inches(11.333), Inches(3.5))
+    tb1 = slide1.shapes.add_textbox(PptxInches(1), PptxInches(2), PptxInches(11.333), PptxInches(3.5))
     tf1 = tb1.text_frame
     tf1.word_wrap = True
     p1 = tf1.paragraphs[0]
@@ -217,7 +421,7 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
     r1.text = f"TRÒ CHƠI TƯƠNG TÁC MẦM NON\nĐỀ TÀI: {topic.upper()}"
     r1.font.size = PptxPt(38)
     r1.font.bold = True
-    r1.font.color.rgb = RGBColor(0, 121, 107)
+    r1.font.color.rgb = PptxRGBColor(0, 121, 107)
 
     p2 = tf1.add_paragraph()
     p2.alignment = PP_ALIGN.CENTER
@@ -225,7 +429,7 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
     r2 = p2.add_run()
     r2.text = f"Lứa tuổi: {age} | Bấm phím mũi tên hoặc click chuột để bắt đầu!"
     r2.font.size = PptxPt(22)
-    r2.font.color.rgb = RGBColor(30, 41, 59)
+    r2.font.color.rgb = PptxRGBColor(30, 41, 59)
 
     blocks = re.split(r'(?=SLIDE\s+\d+|CÂU\s+\d+)', raw_text, flags=re.IGNORECASE)
     question_blocks = [b.strip() for b in blocks if b.strip() and ('?' in b or 'Đáp án' in b or 'A.' in b)]
@@ -245,9 +449,9 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
         bg = s.background
         f = bg.fill
         f.solid()
-        f.fore_color.rgb = RGBColor(255, 253, 245)
+        f.fore_color.rgb = PptxRGBColor(255, 253, 245)
 
-        header_box = s.shapes.add_textbox(Inches(0.8), Inches(0.6), Inches(11.7), Inches(1.2))
+        header_box = s.shapes.add_textbox(PptxInches(0.8), PptxInches(0.6), PptxInches(11.7), PptxInches(1.2))
         htf = header_box.text_frame
         htf.word_wrap = True
         hp = htf.paragraphs[0]
@@ -255,9 +459,9 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
         hr.text = q_title
         hr.font.size = PptxPt(28)
         hr.font.bold = True
-        hr.font.color.rgb = RGBColor(0, 105, 92)
+        hr.font.color.rgb = PptxRGBColor(0, 105, 92)
 
-        body_box = s.shapes.add_textbox(Inches(1.0), Inches(2.0), Inches(11.3), Inches(4.8))
+        body_box = s.shapes.add_textbox(PptxInches(1.0), PptxInches(2.0), PptxInches(11.3), PptxInches(4.8))
         btf = body_box.text_frame
         btf.word_wrap = True
         for b_ln in body_lines.split('\n'):
@@ -268,16 +472,16 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
             br.font.size = PptxPt(24)
             if "đáp án" in b_ln.lower():
                 br.font.bold = True
-                br.font.color.rgb = RGBColor(211, 47, 47)
+                br.font.color.rgb = PptxRGBColor(211, 47, 47)
             else:
-                br.font.color.rgb = RGBColor(30, 41, 59)
+                br.font.color.rgb = PptxRGBColor(30, 41, 59)
 
     slide_end = prs.slides.add_slide(blank_layout)
     bg_end = slide_end.background
     f_end = bg_end.fill
     f_end.solid()
-    f_end.fore_color.rgb = RGBColor(230, 247, 242)
-    tb_end = slide_end.shapes.add_textbox(Inches(1), Inches(2.5), Inches(11.333), Inches(2.5))
+    f_end.fore_color.rgb = PptxRGBColor(230, 247, 242)
+    tb_end = slide_end.shapes.add_textbox(PptxInches(1), PptxInches(2.5), PptxInches(11.333), PptxInches(2.5))
     tf_end = tb_end.text_frame
     pe = tf_end.paragraphs[0]
     pe.alignment = PP_ALIGN.CENTER
@@ -285,7 +489,7 @@ def export_pptx_game(topic: str, age: str, raw_text: str) -> str:
     re_run.text = "🎉 CHÚC MỪNG CÁC BÉ ĐÃ HOÀN THÀNH XUẤT SẮC TRÒ CHƠI! 🎉"
     re_run.font.size = PptxPt(32)
     re_run.font.bold = True
-    re_run.font.color.rgb = RGBColor(0, 121, 107)
+    re_run.font.color.rgb = PptxRGBColor(0, 121, 107)
 
     safe_topic = "".join(c if c.isalnum() else "_" for c in topic)[:35]
     pptx_filename = f"TroChoi_PPTX_{safe_topic}.pptx"
@@ -300,7 +504,7 @@ def render_copy_and_print_buttons(text_content: str, doc_title: str, font_size_p
     
     component_code = f"""
     <div style="display: flex; gap: 12px; width: 100%; align-items: center; margin: 0; padding: 0;">
-        <button id="copyBtn_{unique_key}" onclick="copyFormattedContent_{unique_key}()" style="flex: 1; background: linear-gradient(135deg, #0984E3, #00796B); color: white; border: none; padding: 10px 16px; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(9, 132, 227, 0.25); transition: all 0.2s ease;">📋 Sao Chép Nhanh (HTML/Text)</button>
+        <button id="copyBtn_{unique_key}" onclick="copyFormattedContent_{unique_key}()" style="flex: 1; background: linear-gradient(135deg, #0984E3, #00796B); color: white; border: none; padding: 10px 16px; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(9, 132, 227, 0.25); transition: all 0.2s ease;">📋 Sao Chép Nhanh (Chuẩn Bảng Word)</button>
         <button onclick="printFormattedContent_{unique_key}()" style="flex: 1; background: linear-gradient(135deg, #00B894, #00897B); color: white; border: none; padding: 10px 16px; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 184, 148, 0.28); transition: all 0.2s ease;">🖨️ In Nội Dung Ngay</button>
     </div>
     <script>
@@ -317,16 +521,16 @@ def render_copy_and_print_buttons(text_content: str, doc_title: str, font_size_p
             }} else {{ await navigator.clipboard.writeText(plainContent); }}
             btn.innerHTML = "✅ Đã Sao Chép Chuẩn Word/Zalo!";
             btn.style.background = "linear-gradient(135deg, #2ECC71, #27AE60)";
-            setTimeout(() => {{ btn.innerHTML = "📋 Sao Chép Nhanh (HTML/Text)"; btn.style.background = "linear-gradient(135deg, #0984E3, #00796B)"; }}, 2500);
+            setTimeout(() => {{ btn.innerHTML = "📋 Sao Chép Nhanh (Chuẩn Bảng Word)"; btn.style.background = "linear-gradient(135deg, #0984E3, #00796B)"; }}, 2500);
         }} catch (err) {{
             const ta = document.createElement("textarea"); ta.value = plainContent; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
             btn.innerHTML = "✅ Đã Sao Chép Văn Bản!";
-            setTimeout(() => {{ btn.innerHTML = "📋 Sao Chép Nhanh (HTML/Text)"; }}, 2500);
+            setTimeout(() => {{ btn.innerHTML = "📋 Sao Chép Nhanh (Chuẩn Bảng Word)"; }}, 2500);
         }}
     }}
     function printFormattedContent_{unique_key}() {{
         const pWin = window.open('', '_blank');
-        pWin.document.write('<!DOCTYPE html><html><head><title>' + {title_json} + '</title><style>@page {{ size: A4; margin: 18mm 20mm 18mm 20mm; }} body {{ font-family: "Times New Roman", Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; text-align: justify; }}</style></head><body>' + {html_json} + '</body></html>');
+        pWin.document.write('<!DOCTYPE html><html><head><title>' + {title_json} + '</title><style>@page {{ size: A4; margin: 18mm 20mm 18mm 20mm; }} body {{ font-family: "Times New Roman", Times, serif; font-size: {font_size_pt}pt; line-height: 1.5; color: #000; margin: 0; padding: 0; text-align: justify; }} table {{ width: 100%; border-collapse: collapse; }} th, td {{ border: 1px solid #333; padding: 6pt; }}</style></head><body>' + {html_json} + '</body></html>');
         pWin.document.close(); pWin.focus(); setTimeout(function() {{ pWin.print(); pWin.close(); }}, 350);
     }}
     </script>
@@ -388,7 +592,6 @@ def get_setting_from_db(key_name: str) -> str:
 
 init_db()
 
-# Tự động khôi phục API Key đã lưu từ SQLite khi mở lại web
 if not st.session_state["api_key_saved"]:
     persisted_key = get_setting_from_db("gemini_api_key")
     if persisted_key:
@@ -495,105 +698,102 @@ def delete_plan_by_id(plan_id):
         pass
 
 # =========================================================================
-# BỘ CỨU CÁNH CHUYÊN SÂU & BỘ CÔNG CỤ NÂNG CAO DỰ PHÒNG
+# BỘ CỨU CÁNH CHUYÊN SÂU CHUẨN BẢNG 4 CỘT & BỘ CÔNG CỤ NÂNG CAO
 # =========================================================================
 def generate_instant_pedagogical_plan(info: dict) -> str:
-    topic = info.get("topic", "Hoạt động khám phá").strip()
+    topic = info.get("topic", "Bé khám phá hành trình lớn lên của hạt đậu").strip()
     domain = info.get("domain", "Nhận thức")
     sub_cat = info.get("sub_category", "Khám phá")
-    route = info.get("route_type", "Hoạt động chung")
+    route = info.get("route_type", "Khám phá khoa học")
     art_type = info.get("art_type", "")
     age = info.get("age", "4-5 tuổi")
-    theme = info.get("theme", "Chủ đề quanh bé")
+    theme = info.get("theme", "Thế giới thực vật")
     teacher = info.get("teacher", "Nguyễn Thị Thanh Vân").strip() or "Giáo viên"
     school = info.get("school", "Trường Mầm Non Phước Thạnh").strip() or "Trường Mầm Non"
     class_name = info.get("class_name", "Lớp Mẫu giáo Nhỡ").strip() or "Lớp Mẫu giáo"
     extras_list = info.get("extras", [])
-    extras_str = ", ".join(extras_list) if extras_list else "Giáo dục kỹ năng sống và bảo vệ môi trường"
+    extras_str = ", ".join(extras_list) if extras_list else "Ứng dụng công nghệ AI, Giáo dục Cảm xúc - Xã hội (SEL)"
     custom_ideas = info.get("custom_ideas", "").strip()
-    today_str = datetime.now().strftime("%d/%m/%Y")
+    existing_tools = info.get("existing_tools", "").strip()
+    disp_fmt = info.get("display_format", "Bảng 4 cột chuẩn (Giống mẫu YouTube)")
 
-    art_note = f" - Hình thức: {art_type}" if art_type else ""
+    art_note = f" ({art_type})" if art_type else ""
 
-    raw_plan = f"""{school.upper()}
-Lớp: {class_name} | Độ tuổi: {age}
-GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG ({info.get('activity_type', 'Hoạt động học')})
-ĐỀ TÀI: {topic.upper()}{art_note}
-Chủ đề lớn: {theme} | Lĩnh vực: {domain} ({sub_cat} - {route})
-Người soạn: {teacher} | Ngày dạy: {today_str}
+    header_block = f"""GIÁO ÁN HOẠT ĐỘNG HỌC CÓ CHỦ ĐÍCH
+Trường: {school} | Lớp: {class_name} | Người soạn: {teacher}
+Chủ đề: {theme}
+Lĩnh vực phát triển: {domain} ({sub_cat} - {route})
+Tên hoạt động: {topic}{art_note}
+Độ tuổi: {age}
+Thời lượng: 30 phút
+Hình thức tổ chức: Cả lớp, nhóm 4 trẻ, cá nhân
+Mức độ tích hợp: {extras_str}
 
-I. MỤC ĐÍCH - YÊU CẦU
+I. MỤC TIÊU HOẠT ĐỘNG
 1. Kiến thức:
-- Trẻ nhận biết, gọi đúng tên và nêu được những đặc điểm nổi bật, cấu tạo cơ bản của nội dung bài học: {topic}{art_note}.
+- Trẻ nhận biết và gọi tên được các đặc điểm nổi bật, cấu tạo và quy trình phát triển của nội dung bài học: {topic}{art_note}.
 - Trẻ hiểu được lợi ích, ý nghĩa thực tế của {topic} đối với đời sống con người và môi trường xung quanh.
-- Trẻ nắm được quy trình và các bước tham gia hoạt động thực hành, trò chơi theo đúng hướng dẫn của cô giáo.
 2. Kỹ năng:
-- Rèn luyện kỹ năng quan sát có chủ đích, so sánh, phân loại và ghi nhớ các chi tiết đặc trưng.
-- Phát triển ngôn ngữ mạch lạc: Trẻ tự tin diễn đạt suy nghĩ, trả lời câu hỏi trọn vẹn câu, biết trao đổi cùng bạn.
-- Rèn luyện thao tác vận động tinh khéo léo, phối hợp tay - mắt nhịp nhàng trong hoạt động trải nghiệm thực tế.
-3. Thái độ:
-- Trẻ hào hứng, chủ động, tích cực tham gia vào từng hoạt động học tập và vui chơi.
-- Trẻ biết lắng nghe hiệu lệnh của cô, biết phối hợp nhóm và chia sẻ đồ dùng học tập cùng các bạn.
-- Lồng ghép giáo dục: {extras_str}; trẻ biết yêu quý sản phẩm lao động và giữ gìn vệ sinh lớp học.
+- Trẻ thực hiện thành thạo thao tác trải nghiệm, quan sát có chủ đích, so sánh và phân loại theo nhóm 4 bạn.
+- Trẻ rèn luyện kỹ năng quan sát, diễn đạt ngôn ngữ mạch lạc, trả lời câu hỏi trọn vẹn câu và tự tin chia sẻ ý kiến trước lớp.
+3. Thái độ (Giáo dục Cảm xúc - Xã hội - SEL):
+- Trẻ tích cực, hào hứng tham gia hoạt động trải nghiệm và biết bảo vệ môi trường, giữ gìn sản phẩm.
+- Trẻ biết kiên nhẫn chờ đợi đến lượt, lắng nghe và tôn trọng ý kiến của bạn trong nhóm.
+- Trẻ biết chia sẻ niềm vui và hỗ trợ bạn cùng thực hiện nhiệm vụ.
+4. Năng lực hình thành:
+- Tư duy: Tự quan sát, nhận ra sự thay đổi về kích thước, hình dạng và bản chất của sự vật qua từng giai đoạn.
+- Giao tiếp: Trẻ sử dụng từ ngữ rõ ràng, mạch lạc để mô tả suy nghĩ và trả lời câu hỏi của cô.
+- Hợp tác: Biết chia sẻ đồ dùng, phân công công việc trong nhóm và phối hợp nhịp nhàng với bạn.
+- Giải quyết vấn đề: Tự nhận biết và điều chỉnh thao tác khi gặp tình huống chưa đúng trong quá trình thực hành.
 
 II. CHUẨN BỊ
 1. Đồ dùng của cô:
-- Giáo án điện tử thiết kế sinh động, slide hình ảnh, video tư liệu sắc nét liên quan đến {topic}.
-- Hệ thống âm thanh, loa bluetooth, nhạc không lời êm dịu và các bài hát vui nhộn theo chủ đề {theme}.
-- Đồ dùng trực quan vật thật / mô hình kích thước lớn phục vụ quan sát đàm thoại.{f' Ý tưởng riêng của cô: {custom_ideas}' if custom_ideas else ''}
-2. Đồ dùng của trẻ:
-- Bộ đồ dùng thực hành, học liệu đủ số lượng cho từng trẻ (khay đựng, thẻ hình, tranh mẫu, đồ chơi trải nghiệm).
-- Trang phục gọn gàng, tâm thế thoải mái, tâm lý tự tin sẵn sàng bước vào giờ học.
-3. Địa điểm - Không gian tổ chức:
-- Phòng học sạch sẽ, thoáng mát, đủ ánh sáng; bố trí đội hình chữ U hoặc vòng cung thuận tiện quan sát màn hình.
+- Video AI ngắn (thời lượng 30 giây) minh họa sinh động nội dung '{topic}' kết hợp âm thanh vui tươi.
+- Tivi màn hình chỉnh lớn, loa bluetooth, nhạc không lời êm dịu và bài hát theo chủ đề {theme}.
+- Bộ thẻ hình ảnh minh họa trực quan quy trình 4 bước và mẫu vật thật kích thước lớn.{f' Đồ dùng hiện có: {existing_tools}.' if existing_tools else ''}{f' Ý tưởng riêng của cô: {custom_ideas}.' if custom_ideas else ''}
+2. Đồ dùng của trẻ (Chia theo nhóm 4 trẻ và cá nhân):
+- Mỗi nhóm 4 trẻ có: 1 khay nhựa đựng học liệu, bộ thẻ hình sắp xếp trình tự và vật thật trải nghiệm trực tiếp.
+- Mỗi trẻ có: Bảng con/khay cá nhân, bộ đồ dùng thực hành đủ số lượng, khăn lau tay sạch sẽ.
+3. Môi trường & An toàn:
+- Sắp xếp lớp học gọn gàng, sạch sẽ, thoáng mát; thảm trải phòng học sạch để trẻ ngồi vòng cung.
+- Đảm bảo an toàn tuyệt đối: Đồ dùng không sắc nhọn, nhắc trẻ không đưa vật nhỏ vào mũi/miệng.
 
-III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG
-Hoạt động 1: Ổn định tổ chức, gây hứng thú (3 - 5 phút)
-- Cô tập trung trẻ lại quanh mình, mở nhạc giai điệu vui tươi theo chủ đề {theme} và cùng trẻ nhún nhảy:
-  + Cô nói: "Nhiệt liệt chào mừng tất cả các bé lớp {class_name} đến với tiết học kỳ diệu ngày hôm nay!"
-  + Trẻ đồng thanh đáp: "Chúng con chào cô ạ!"
-- Cô tạo tình huống bất ngờ với chiếc hộp quà bí mật:
-  + Cô nói: "Hôm nay, cô mang đến một món quà vô cùng đặc biệt. Các con thử đoán xem bên trong có điều bí mật gì nào?"
-  + Trẻ hào hứng phỏng đoán: "Dạ thưa cô là đồ chơi ạ / Là tranh ảnh ạ!"
-  + Cô nhẹ nhàng mở quà và giới thiệu biểu tượng của bài học: "Đó chính là những hình ảnh vô cùng thú vị về {topic}! Hôm nay cô con mình sẽ cùng nhau bước vào hành trình khám phá nhé!"
+III. TIẾN TRÌNH HOẠT ĐỘNG"""
 
-Hoạt động 2: Nội dung trọng tâm (20 - 25 phút)
-* Bước 1: Khám phá trải nghiệm thực tế & Đàm thoại gợi mở:
-- Cô giới thiệu vật thật / tranh ảnh sinh động về {topic} cho cả lớp quan sát cận cảnh.
-- Cô gợi mở để trẻ tự do phát hiện bằng các giác quan (nhìn, nghe, chạm, sờ):
-  + Cô hỏi: "Các con có nhận xét gì về {topic}? Ai giỏi cho cô biết hình dáng, màu sắc và đặc điểm của nó nào?"
-  + Trẻ giơ tay trả lời: "Dạ con thấy có màu sắc đẹp ạ / Dạ con thấy nó rất quen thuộc ạ!"
-  + Cô hỏi tiếp: "Để hiểu rõ hơn về công dụng và sự phát triển của {topic}, các con hãy cùng hướng mắt lên màn hình quan sát đoạn phim ngắn này nhé!"
-- Sau khi xem video, cô đặt câu hỏi gợi mở tư duy logic:
-  + Cô hỏi: "Qua đoạn phim vừa rồi, con biết thêm điều gì mới? Nếu không có nó thì cuộc sống của chúng ta sẽ thế nào?"
-  + Trẻ suy nghĩ và tự tin trả lời theo cảm nhận.
-  + Cô chốt lại kiến thức chuẩn xác, diễn đạt ngắn gọn, dễ nhớ để trẻ khắc sâu bài học.
+    if "4 cột" in disp_fmt:
+        table_block = f"""| Thời gian | Hoạt động của cô (Lời thoại, câu hỏi & hành động) | Dự kiến hoạt động & Phản hồi của trẻ | Quan sát, Hỗ trợ & Phân hóa |
+| --- | --- | --- | --- |
+| 3 - 4 phút | 1. Ổn định - Gây hứng thú (Xem video AI):<br>- Cô mở nhạc vui tươi, tập trung trẻ ngồi vòng cung trên thảm:<br>+ Cô nói: "Chào mừng các bé yêu lớp {class_name} đến với tiết học kỳ diệu ngày hôm nay!"<br>- Cô mở video AI (30 giây) minh họa sinh động về '{topic}'.<br>- Hệ thống câu hỏi gợi mở tư duy:<br>+ Đố: "Các con vừa được xem bạn nhỏ trong video khám phá điều gì nào?"<br>+ Hỏi: "Con thấy điều gì đặc biệt nhất xuất hiện trên màn hình?"<br>+ Khơi: "Điều kỳ diệu gì sẽ xảy ra tiếp theo khi chúng mình tự tay khám phá '{topic}' nhỉ?" | - Trẻ chú ý quan sát màn hình, tỏ ra hào hứng, thích thú.<br>- Trẻ trả lời: "Dạ về {topic} ạ!"<br>- Trẻ giơ tay phát biểu: "Con thấy màu sắc rất đẹp và sinh động ạ!" | - Khen ngợi trẻ quan sát tốt.<br>- Với trẻ nhút nhát: Cô đến gần, trao đổi riêng, gợi mở từ khóa để trẻ tự tin trả lời. |
+| 8 - 10 phút | 2. Khám phá trọng tâm & Đàm thoại sâu:<br>- Cô chia trẻ về các nhóm 4 bạn, phát vật thật và bộ thẻ hình cho từng nhóm.<br>- Cô hướng dẫn trẻ quan sát bằng đa giác quan (nhìn, sờ, ngửi) và sắp xếp thẻ theo trình tự:<br>+ Cô hỏi: "Nhóm nào giỏi cho cô biết đặc điểm nổi bật của '{topic}' gồm những gì?"<br>+ Cô hỏi mở rộng: "Vì sao '{topic}' lại quan trọng và có ích đối với cuộc sống của chúng ta?"<br>- Cô chốt kiến thức chuẩn xác, ngắn gọn kết hợp hiệu ứng hình ảnh minh họa. | - Trẻ về nhóm 4 bạn, cùng nhau sờ, quan sát vật thật và thảo luận sôi nổi.<br>- Đại diện nhóm trả lời mạch lạc theo suy nghĩ của trẻ.<br>- Cả lớp vỗ tay hưởng ứng ý kiến hay của bạn. | - Quan sát sự hợp tác của các nhóm 4 trẻ.<br>- Nhắc nhở trẻ không tranh giành đồ dùng, biết nhường bạn quan sát cùng. |
+| 10 phút | 3. Thực hành - Trải nghiệm (Tự tay thao tác):<br>- Cô nêu nhiệm vụ thực hành và làm mẫu từng bước rõ ràng:<br>+ Bước 1: Chuẩn bị khay đồ dùng cá nhân ngay ngắn.<br>+ Bước 2: Thực hiện thao tác chính với '{topic}' theo đúng trình tự.<br>+ Bước 3: Kiểm tra và hoàn thiện sản phẩm của mình.<br>- Cô giao nhiệm vụ: "Các con hãy khéo léo thực hiện từng bước nhé, bạn nào xong trước có thể giúp đỡ bạn bên cạnh!"<br>- Cô đi từng bàn quan sát, hỗ trợ kỹ thuật. | - Trẻ ngồi vào vị trí thực hành.<br>- Trẻ chăm chú thực hiện từng bước theo hướng dẫn của cô.<br>- Trẻ vui mừng khoe sản phẩm với cô và các bạn trong nhóm. | - Hỗ trợ kịp thời những trẻ thao tác còn lúng túng.<br>- Gợi ý mở rộng thêm chi tiết sáng tạo cho những trẻ làm nhanh và khéo tay. |
+| 3 phút | 4. Trò chơi củng cố: "Ai Nhanh Trí Hơn":<br>- Cô phổ biến luật chơi và cách chơi:<br>+ Chia lớp thành 2 đội thi đua bật qua vòng thể dục lên gắn đúng thẻ hình về '{topic}'.<br>+ Thời gian chơi tính bằng 1 bản nhạc vui nhộn.<br>- Cô tổ chức cho trẻ chơi 2 lượt, cùng trẻ kiểm tra kết quả. | - Trẻ hào hứng xếp hàng thành 2 đội.<br>- Trẻ bật qua vòng và gắn thẻ đúng yêu cầu, cổ vũ bạn nhiệt tình.<br>- Cả lớp cùng cô đếm số thẻ đúng của 2 đội. | - Quan sát đảm bảo an toàn khi trẻ bật qua vòng.<br>- Động viên tinh thần đoàn kết của cả hai đội chơi. |
+| 3 phút | 5. Kết thúc - Nhận xét - Chuyển hoạt động:<br>- Cô tập trung trẻ lại, nhận xét tuyên dương sự cố gắng của cả lớp:<br>+ Cô nói: "Hôm nay cô thấy bạn nào cũng rất giỏi, khéo léo và biết hợp tác cùng bạn!"<br>- Nhắc trẻ thu dọn đồ dùng gọn gàng, rửa tay sạch sẽ và chuyển sang hoạt động tiếp theo. | - Trẻ vỗ tay vui sướng khi được cô khen.<br>- Trẻ tự giác thu dọn khay đồ dùng cất đúng nơi quy định và đi rửa tay. | - Nhắc nhở nhẹ nhàng trẻ giữ gìn vệ sinh chung sau khi hoàn thành tiết học. |"""
+    elif "3 cột" in disp_fmt:
+        table_block = f"""| Thời gian | Hoạt động của cô (Lời thoại, câu hỏi & hành động) | Dự kiến hoạt động & Phản hồi của trẻ |
+| --- | --- | --- |
+| 3 - 4 phút | 1. Ổn định - Gây hứng thú:<br>- Cô mở nhạc chủ đề {theme}, trò chuyện dẫn dắt vào bài '{topic}'.<br>- Cô đặt câu hỏi gợi mở: "Các con thấy điều gì đặc biệt trong món quà hôm nay?" | - Trẻ hát, vận động vui tươi.<br>- Trẻ chú ý quan sát và hào hứng trả lời câu hỏi của cô. |
+| 18 - 20 phút | 2. Nội dung trọng tâm (Khám phá & Thực hành):<br>- Bước 1: Cho trẻ quan sát vật thật, đàm thoại phân tích đặc điểm của '{topic}'.<br>- Bước 2: Cô làm mẫu và tổ chức cho trẻ thực hành trải nghiệm theo nhóm 4 trẻ.<br>- Bước 3: Tổ chức trò chơi vận động củng cố kiến thức bài học. | - Trẻ quan sát, thảo luận nhóm và tự tin trả lời.<br>- Trẻ thực hành thao tác khéo léo.<br>- Trẻ tham gia trò chơi sôi nổi, đúng luật. |
+| 3 - 4 phút | 3. Kết thúc - Nhận xét:<br>- Cô nhận xét, tuyên dương cả lớp, giáo dục kỹ năng và hướng dẫn thu dọn đồ dùng. | - Trẻ lắng nghe cô khen, tự giác cất đồ dùng gọn gàng. |"""
+    else:
+        table_block = f"""Hoạt động 1: Ổn định tổ chức, gây hứng thú (3 - 4 phút)
+- Cô tập trung trẻ, mở nhạc vui tươi theo chủ đề {theme} và dẫn dắt giới thiệu đề tài '{topic}'.
+- Cô đặt câu hỏi gợi mở để kích thích trí tò mò của trẻ.
 
-* Bước 2: Trải nghiệm thực hành - Trẻ làm chủ hoạt động:
-- Cô chia trẻ về các nhóm nhỏ ngồi theo bàn đã chuẩn bị sẵn đồ dùng học tập.
-- Cô nêu rõ nhiệm vụ và làm mẫu thao tác rõ ràng, dứt khoát:
-  + Cô nói: "Bây giờ các kỹ sư nhí hãy cùng nhau thực hành thao tác sắp xếp, phân loại và tạo ra sản phẩm về {topic} nhé!"
-- Trẻ bắt đầu thực hiện bài tập. Cô đi từng bàn bao quát, quan sát kỹ năng của từng trẻ:
-  + Động viên, khích lệ những trẻ còn lúng túng hoặc nhút nhát.
-  + Gợi ý mở rộng để những trẻ khá, giỏi sáng tạo thêm các chi tiết mới lạ.
+Hoạt động 2: Nội dung trọng tâm (20 - 22 phút)
+- Bước 1: Khám phá trải nghiệm thực tế & Đàm thoại sâu về đặc điểm, lợi ích của '{topic}'.
+- Bước 2: Thực hành trải nghiệm theo nhóm 4 trẻ và cá nhân; cô bao quát hỗ trợ từng trẻ.
+- Bước 3: Trò chơi củng cố 'Ai Nhanh Trí Hơn' giúp trẻ khắc sâu kiến thức.
 
-* Bước 3: Trò chơi củng cố kiến thức:
-- Cô giới thiệu trò chơi vận động: 'Đội Nào Nhanh Nhất'.
-- Luật chơi: Mỗi lượt một bạn bật qua các vòng thể dục lên chọn đúng hình ảnh/đồ vật về {topic} đặt vào rổ của đội mình, sau đó chạy về đập tay vào bạn tiếp theo.
-- Cách chơi: Cô bật nhạc rộn ràng; 2 đội thi đua nhau trong thời gian 1 bản nhạc.
-- Trẻ chơi hào hứng 2 - 3 lượt. Cô cùng cả lớp kiểm tra kết quả, đếm số lượng và tuyên dương đội chiến thắng.
+Hoạt động 3: Kết thúc hoạt động (3 phút)
+- Cô nhận xét, tuyên dương cả lớp, giáo dục trẻ và hướng dẫn thu dọn đồ dùng gọn gàng."""
 
-Hoạt động 3: Kết thúc hoạt động (2 - 3 phút)
-- Cô tập trung trẻ lại, nhận xét chung về tinh thần học tập:
-  + Cô khen ngợi sự tập trung, sáng tạo và tinh thần hợp tác rất tốt của cả lớp hôm nay.
-  + Nhắc nhở giáo dục nhẹ nhàng: Các con nhớ giữ gìn đồ dùng, bảo vệ môi trường và biết yêu quý cuộc sống xung quanh.
-- Cho trẻ cùng cô thu dọn đồ dùng học tập gọn gàng, cất vào đúng nơi quy định và hát vang bài ca ra sân chơi.
-
+    footer_block = f"""
 IV. ĐÁNH GIÁ CUỐI NGÀY
-- Tình trạng sức khỏe: 100% trẻ khỏe mạnh, thoải mái, tham gia tích cực các hoạt động từ đầu đến cuối tiết học.
-- Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng, tự tin phát biểu xây dựng bài và biết đoàn kết với bạn.
-- Kiến thức, kỹ năng: Đại đa số trẻ nắm vững nội dung bài dạy ({topic}), hoàn thành tốt yêu cầu thực hành; cô đã hỗ trợ kịp thời các trẻ còn chậm tiến bộ."""
-    return clean_markdown_text(raw_plan)
+- Tình trạng sức khỏe: 100% trẻ khỏe mạnh, tinh thần thoải mái, tham gia tích cực từ đầu đến cuối tiết học.
+- Trạng thái cảm xúc, thái độ: Trẻ vui vẻ, hào hứng, tự tin phát biểu xây dựng bài và biết hợp tác chia sẻ cùng bạn.
+- Kiến thức, kỹ năng: Đa số trẻ nắm vững kiến thức trọng tâm bài '{topic}', thực hiện đúng các bước thao tác; cô đã hỗ trợ kịp thời các trẻ còn nhút nhát."""
+
+    return clean_markdown_text(f"{header_block}\n{table_block}\n{footer_block}")
 
 def generate_instant_digital_plan(info: dict) -> str:
     topic = info.get("topic", "Khám phá sự kỳ diệu của quả cam").strip()
@@ -608,22 +808,22 @@ def generate_instant_digital_plan(info: dict) -> str:
     num_kids = info.get("num_children", 25)
     digital_equip = info.get("digital_equip", "Máy tính kết nối tivi thông minh, loa bluetooth")
     digital_tools = ", ".join(info.get("digital_tools", ["Bảng tương tác", "Canva", "Video AI"]))
-    today_str = datetime.now().strftime("%d/%m/%Y")
 
-    raw_plan = f"""{school.upper()}
-Lớp: {class_name} | Độ tuổi: {age} | Số lượng: {num_kids} trẻ
-GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ & CÔNG NGHỆ THÔNG MINH
-ĐỀ TÀI: {topic.upper()}
-Chủ đề lớn: {theme} | Lĩnh vực: {domain}
-Loại hoạt động: {act_type} | Thời lượng: {duration}
-Người soạn: {teacher} | Ngày dạy: {today_str}
+    raw_plan = f"""GIÁO ÁN TÍCH HỢP NĂNG LỰC SỐ & CÔNG NGHỆ THÔNG MINH
+Trường: {school} | Lớp: {class_name} | Người soạn: {teacher}
+Chủ đề: {theme}
+Lĩnh vực phát triển: {domain}
+Tên hoạt động: {topic}
+Độ tuổi: {age} | Số lượng: {num_kids} trẻ
+Thời lượng: {duration}
+Loại hoạt động: {act_type}
 
-I. MỤC ĐÍCH - YÊU CẦU
+I. MỤC TIÊU HOẠT ĐỘNG
 1. Kiến thức:
 - Trẻ nhận biết, gọi đúng tên và các đặc điểm cấu tạo nổi bật của {topic} qua việc quan sát vật thật kết hợp tương tác số.
-- Trẻ bước đầu làm quen với các thiết bị công nghệ giáo dục ({digital_equip}), hiểu được thao tác chạm - chọn trên màn hình cảm ứng hoặc bảng tương tác số ({digital_tools}).
+- Trẻ bước đầu làm quen với các thiết bị công nghệ giáo dục ({digital_equip}), hiểu được thao tác chạm - chọn trên màn hình cảm ứng ({digital_tools}).
 2. Kỹ năng & Năng lực số:
-- Hình thành kỹ năng số ban đầu: Trẻ biết quan sát điểm chạm, dùng ngón tay trỏ thực hiện thao tác kéo - thả, ghép đôi hình ảnh trên màn hình tương tác thông minh.
+- Hình thành kỹ năng số ban đầu: Trẻ biết quan sát điểm chạm, dùng ngón tay trỏ thực hiện thao tác kéo - thả, ghép đôi hình ảnh trên màn hình tương tác.
 - Rèn luyện kỹ năng quan sát, so sánh đối chiếu giữa vật thật ngoài đời và mô hình mô phỏng 3D trên màn hình.
 3. Thái độ:
 - Trẻ hào hứng, thích thú khám phá công nghệ, có ý thức giữ khoảng cách an toàn cho mắt khi tiếp xúc màn hình.
@@ -631,17 +831,14 @@ I. MỤC ĐÍCH - YÊU CẦU
 II. CHUẨN BỊ
 1. Đồ dùng của cô: {digital_equip}; học liệu số ({digital_tools}); vật thật trực quan.
 2. Đồ dùng của trẻ: Vật thật trải nghiệm đa giác quan, thẻ tín hiệu tương tác.
-3. Không gian tổ chức: Phòng học thoáng mát, màn hình ngang tầm mắt trẻ.
+3. Không gian tổ chức: Phòng học thoáng mát, màn hình ngang tầm mắt trẻ, khoảng cách tối thiểu 2m.
 
-III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG
-Hoạt động 1: Mở đầu - Khơi gợi hứng thú với Trợ lý AI (3 - 5 phút)
-- Cô mở màn hình tương tác giới thiệu nhân vật AI chào đón cả lớp, tạo tình huống khám phá '{topic}'.
-Hoạt động 2: Trọng tâm - Khám phá Đa phương tiện & Tương tác số (20 - 25 phút)
-- Bước 1: Trẻ quan sát vật thật kết hợp hình ảnh 3D/Video trên tivi, đàm thoại nhận xét đặc điểm.
-- Bước 2: Trẻ lên chạm màn hình tương tác phân loại, ghép đôi kiến thức về '{topic}'.
-- Bước 3: Tổ chức trò chơi số hóa theo đội nhóm, củng cố khắc sâu bài học.
-Hoạt động 3: Kết thúc & Giáo dục nhẹ nhàng (2 - 3 phút)
-- Cô và trợ lý AI tuyên dương cả lớp, nhắc trẻ bảo vệ đôi mắt khi sử dụng thiết bị điện tử.
+III. TIẾN TRÌNH HOẠT ĐỘNG
+| Thời gian | Hoạt động của cô (Lời thoại, câu hỏi & hành động) | Dự kiến hoạt động & Phản hồi của trẻ | Quan sát, Hỗ trợ & Phân hóa |
+| --- | --- | --- | --- |
+| 3 - 5 phút | 1. Mở đầu - Khơi gợi hứng thú với Trợ lý AI:<br>- Cô bật màn hình tương tác giới thiệu nhân vật hoạt hình AI chào đón cả lớp.<br>- Nhân vật AI đặt câu đố vui dẫn dắt trẻ khám phá '{topic}'. | - Trẻ thích thú vẫy tay chào nhân vật AI.<br>- Trẻ sôi nổi đoán câu đố và gọi tên bài học. | - Khen ngợi trẻ phản xạ nhanh, hỗ trợ trẻ nhút nhát mạnh dạn giơ tay. |
+| 20 - 25 phút | 2. Trọng tâm - Khám phá Đa phương tiện & Tương tác số:<br>- Bước 1: Trẻ trải nghiệm vật thật kết hợp quan sát video 3D trên tivi.<br>- Bước 2: Mời đại diện các nhóm lên chạm màn hình tương tác kéo thả, phân loại đúng - sai.<br>- Bước 3: Tổ chức trò chơi số hóa theo đội thi đua giải mã ô chữ. | - Trẻ sờ, ngửi vật thật và đối chiếu với mô hình 3D trên màn hình.<br>- Trẻ thực hiện thao tác chạm màn hình chính xác, tự tin.<br>- Các đội thi đua hào hứng. | - Hướng dẫn trẻ thao tác chạm nhẹ nhàng vào màn hình.<br>- Nhắc trẻ giữ tư thế ngồi thẳng, không đứng quá sát tivi. |
+| 2 - 3 phút | 3. Kết thúc & Giáo dục nhẹ nhàng:<br>- Cô và nhân vật AI tuyên dương cả lớp, nhắc trẻ bảo vệ đôi mắt khi xem tivi ở nhà. | - Trẻ cùng cô tập động tác chớp mắt thư giãn và hát bài hát kết thúc. | - Quan sát đảm bảo trẻ thoải mái, vui vẻ khi chuyển hoạt động. |
 
 IV. ĐÁNH GIÁ CUỐI NGÀY
 - Tình trạng sức khỏe: Trẻ khỏe mạnh, giữ đúng tư thế ngồi và khoảng cách an toàn cho mắt suốt tiết học.
@@ -658,81 +855,38 @@ def generate_instant_advanced_tool(tool_type: str, info: dict) -> str:
         return clean_markdown_text(f"""KỊCH BẢN DẠY NHANH (LỜI DẪN & PHÂN BỔ THỜI GIAN)
 ĐỀ TÀI: {topic.upper()} | ĐỘ TUỔI: {age}
 
-1. ỔN ĐỊNH & GÂY HỨNG THÚ (00:00 - 04:00 | 4 phút):
-- Hiệu lệnh tập trung: Cô vỗ tay theo nhịp 1-2-3, đọc vè "Xúm xít, xúm xít! Bên cô, bên cô!".
-- Lời dẫn mở màn: "Hôm nay cô mang đến một hộp quà bí mật từ thế giới {theme}. Đố các bé biết bên trong có gì?"
-- Chuyển tiếp: Mở hộp quà giới thiệu đề tài '{topic}'.
-
-2. KHÁM PHÁ TRỌNG TÂM (04:00 - 14:00 | 10 phút):
-- Quan sát trực quan: Cho trẻ sờ, nhìn, gọi tên đặc điểm nổi bật của '{topic}'.
-- 3 Câu hỏi đinh:
-  + Câu 1: "Con nhìn thấy {topic} có màu sắc và hình dáng như thế nào?"
-  + Câu 2: "Theo con, {topic} dùng để làm gì / có ích lợi gì?"
-  + Câu 3: "Nếu không có {topic} thì điều gì sẽ xảy ra?"
-- Chốt kiến thức: Cô tóm tắt ngắn gọn bằng 2 câu dễ nhớ.
-
-3. THỰC HÀNH TRẢI NGHIỆM (14:00 - 22:00 | 8 phút):
-- Chia 3 nhóm thực hành thao tác trực tiếp trên đồ dùng cá nhân.
-- Cô đi từng nhóm gợi mở, sửa sai nhẹ nhàng, khen ngợi trẻ sáng tạo.
-
-4. TRÒ CHƠI CỦNG CỐ (22:00 - 28:00 | 6 phút):
-- Trò chơi: "Ai Nhanh Trí Hơn". Chia 2 đội thi đua bật qua vòng chọn đúng hình ảnh về '{topic}'.
-- Kiểm tra kết quả, đếm số lượng cùng trẻ và tặng hoa bé ngoan.
-
-5. KẾT THÚC & CHUYỂN HOẠT ĐỘNG (28:00 - 30:00 | 2 phút):
-- Tuyên dương cả lớp, giáo dục kỹ năng sống gắn với '{topic}', hát bài hát chủ đề và thu dọn đồ dùng.""")
+| Thời gian | Nội dung hoạt động | Lời dẫn & Câu hỏi cốt lõi của cô |
+| --- | --- | --- |
+| 00:00 - 04:00 (4 phút) | 1. Ổn định & Gây hứng thú | - Đọc vè tập trung: "Xúm xít, xúm xít! Bên cô, bên cô!"<br>- Lời dẫn: "Hôm nay cô mang đến một bí mật từ thế giới {theme}. Đố các bé biết là gì?" |
+| 04:00 - 14:00 (10 phút) | 2. Khám phá trọng tâm | - Cho trẻ quan sát vật thật, video AI về '{topic}'.<br>- 3 Câu hỏi đinh: (1) Con thấy có đặc điểm gì? (2) Nó có ích lợi gì? (3) Điều gì xảy ra nếu thiếu nó? |
+| 14:00 - 22:00 (8 phút) | 3. Thực hành trải nghiệm | - Chia nhóm 4 trẻ thực hành trực tiếp trên khay đồ dùng.<br>- Cô bao quát gợi mở, hỗ trợ trẻ thao tác chậm. |
+| 22:00 - 28:00 (6 phút) | 4. Trò chơi củng cố | - Trò chơi "Ai Nhanh Trí Hơn": 2 đội thi đua bật qua vòng chọn đúng thẻ hình về '{topic}'. |
+| 28:00 - 30:00 (2 phút) | 5. Kết thúc & Chuyển tiếp | - Tuyên dương cả lớp, giáo dục kỹ năng sống và hướng dẫn thu dọn đồ dùng. |""")
 
     elif tool_type == "video_ai":
         return clean_markdown_text(f"""KỊCH BẢN VIDEO AI MINH HỌA TIẾT DẠY
 ĐỀ TÀI: {topic.upper()} | ĐỘ TUỔI: {age}
 
-CẢNH 1 (00:00 - 00:05):
-- Thời lượng: 5 giây
-- Hình ảnh: Khung cảnh lớp học mầm non Việt Nam rực rỡ nắng mai, cô giáo dịu dàng mỉm cười chào các bé bên biểu tượng '{topic}'.
-- Lời thoại: "Chào mừng các bé yêu đến với hành trình khám phá điều kỳ diệu về {topic} hôm nay!"
-- Âm thanh: Nhạc nền vui tươi, tiếng chuông leng keng nhẹ nhàng.
-- Prompt tiếng Anh: Cute 3D Pixar style illustration of a friendly Vietnamese kindergarten teacher smiling warmly in a bright colorful classroom with {topic}, cheerful Vietnamese preschoolers looking excited, soft morning sunlight, joyful atmosphere --ar 16:9
-
-CẢNH 2 (00:05 - 00:10):
-- Thời lượng: 5 giây
-- Hình ảnh: Cận cảnh chi tiết sinh động của '{topic}' xuất hiện lấp lánh ở trung tâm màn hình với màu sắc tươi sáng, rõ nét.
-- Lời thoại: "Các con hãy mở to đôi mắt xinh xem điều gì đang xuất hiện trước mắt chúng mình nào!"
-- Âm thanh: Hiệu ứng âm thanh phép thuật lung linh.
-- Prompt tiếng Anh: Cute 3D educational animation close-up of {topic} glowing softly with vibrant colors, clean bright background, child-friendly 3D render style, high detail --ar 16:9
-
-CẢNH 3 (00:10 - 00:15):
-- Thời lượng: 5 giây
-- Hình ảnh: Một em bé mầm non Việt Nam 4-5 tuổi mặc đồng phục dễ thương đang chăm chú quan sát và chỉ tay khám phá '{topic}'.
-- Lời thoại: "Ồ! Thật là thú vị phải không nào? Chúng mình cùng tìm hiểu từng đặc điểm nhé!"
-- Âm thanh: Nhạc dạo vui nhộn, tiết tấu vừa phải.
-- Prompt tiếng Anh: Cute 3D style, a smiling 4-year-old Vietnamese child in neat preschool uniform pointing curiously at {topic}, bright warm classroom setting, expressive happy face, Pixar animation style --ar 16:9
-
-CẢNH 4 (00:15 - 00:20):
-- Thời lượng: 5 giây
-- Hình ảnh: Các bạn nhỏ cùng nhau thực hành, chia sẻ và vui vẻ hợp tác trải nghiệm '{topic}' trên bàn học.
-- Lời thoại: "Khi chúng mình cùng nhau khám phá và chia sẻ, mọi điều đều trở nên thật dễ dàng và vui vẻ!"
-- Âm thanh: Tiếng cười nói trong trẻo, nhạc nền ấm áp.
-- Prompt tiếng Anh: Cute 3D illustration of happy Vietnamese kindergarten children working together at a colorful wooden table exploring {topic}, teamwork, warm lighting, detailed 3D cartoon --ar 16:9
-
-CẢNH 5 (00:20 - 00:25):
-- Thời lượng: 5 giây
-- Hình ảnh: Cảnh tổng kết rực rỡ với pháo giấy, ngôi sao lấp lánh chúc mừng các bé hoàn thành bài học '{topic}'.
-- Lời thoại: "Hoan hô các bé thật giỏi! Hẹn gặp lại các con trong những bài học tiếp theo nhé!"
-- Âm thanh: Nhạc kết thúc vui tươi, tiếng vỗ tay rộn rã.
-- Prompt tiếng Anh: Cute 3D celebration scene with colorful confetti, golden stars, and smiling Vietnamese preschoolers cheering happily around {topic}, joyful atmosphere --ar 16:9
+| Cảnh | Thời lượng | Hình ảnh minh họa | Lời thoại & Âm thanh | Prompt tiếng Anh (Tạo ảnh/video 3D) |
+| --- | --- | --- | --- | --- |
+| Cảnh 1 | 5 giây | Khung cảnh lớp học mầm non Việt Nam rực rỡ nắng mai, cô giáo dịu dàng mỉm cười chào các bé bên biểu tượng '{topic}'. | - Lời thoại: "Chào mừng các bé yêu đến với hành trình khám phá điều kỳ diệu về {topic} hôm nay!"<br>- Âm thanh: Nhạc nền vui tươi, tiếng chuông leng keng. | Cute 3D Pixar style illustration of a friendly Vietnamese kindergarten teacher smiling warmly in a bright classroom with {topic}, cheerful Vietnamese preschoolers, morning sunlight --ar 16:9 |
+| Cảnh 2 | 5 giây | Cận cảnh chi tiết sinh động của '{topic}' xuất hiện lấp lánh ở trung tâm màn hình với màu sắc tươi sáng, rõ nét. | - Lời thoại: "Các con hãy mở to đôi mắt xinh xem điều gì đang xuất hiện trước mắt chúng mình nào!"<br>- Âm thanh: Hiệu ứng âm thanh phép thuật lung linh. | Cute 3D educational animation close-up of {topic} glowing softly with vibrant colors, clean bright background, child-friendly 3D render style --ar 16:9 |
+| Cảnh 3 | 5 giây | Một em bé mầm non Việt Nam 4-5 tuổi mặc đồng phục dễ thương đang chăm chú quan sát và chỉ tay khám phá '{topic}'. | - Lời thoại: "Ồ! Thật là thú vị phải không nào? Chúng mình cùng tìm hiểu từng đặc điểm nhé!"<br>- Âm thanh: Nhạc dạo vui nhộn, tiết tấu vừa phải. | Cute 3D style, a smiling 4-year-old Vietnamese child in neat preschool uniform pointing curiously at {topic}, warm classroom setting, Pixar style --ar 16:9 |
+| Cảnh 4 | 5 giây | Các bạn nhỏ cùng nhau thực hành, chia sẻ và vui vẻ hợp tác trải nghiệm '{topic}' trên bàn học. | - Lời thoại: "Khi chúng mình cùng nhau khám phá và chia sẻ, mọi điều đều trở nên thật dễ dàng và vui vẻ!"<br>- Âm thanh: Tiếng cười nói trong trẻo, nhạc nền ấm áp. | Cute 3D illustration of happy Vietnamese kindergarten children working together at a colorful wooden table exploring {topic}, teamwork, warm lighting --ar 16:9 |
+| Cảnh 5 | 5 giây | Cảnh tổng kết rực rỡ với pháo giấy, ngôi sao lấp lánh chúc mừng các bé hoàn thành bài học '{topic}'. | - Lời thoại: "Hoan hô các bé thật giỏi! Hẹn gặp lại các con trong những bài học tiếp theo nhé!"<br>- Âm thanh: Nhạc kết thúc vui tươi, tiếng vỗ tay rộn rã. | Cute 3D celebration scene with colorful confetti, golden stars, and smiling Vietnamese preschoolers cheering happily around {topic}, joyful atmosphere --ar 16:9 |
 
 VII. QUY TRÌNH 5 BƯỚC DỰNG VIDEO AI & DANH SÁCH TÀI NGUYÊN
 1. Danh sách tài nguyên đề xuất:
-- Công cụ tạo ảnh AI: Midjourney / Canva Magic Media / Google ImageFX (Dán các câu Prompt tiếng Anh ở trên để tạo ảnh từng cảnh).
-- Công cụ tạo chuyển động (Image-to-Video AI): Kling AI / Runway Gen-3 / Hailuo AI (Tải ảnh lên để tạo chuyển động 5 giây cho mỗi cảnh).
-- Công cụ lồng tiếng & Âm thanh AI: CapCut / ElevenLabs / Vbee (Chọn giọng đọc nữ miền Bắc/Nam truyền cảm).
+- Công cụ tạo ảnh AI: Midjourney / Canva Magic Media / Google ImageFX (Dùng để tạo các bức ảnh tĩnh theo Prompt).
+- Công cụ tạo chuyển động (Image-to-Video AI): Runway Gen-3 / Kling AI / Hailuo AI (Biến ảnh tĩnh thành video chuyển động 5 giây).
+- Công cụ lồng tiếng & Âm thanh AI: CapCut (Giọng đọc AI trẻ em/cô giáo tiếng Việt) / ElevenLabs.
 - Phần mềm dựng hoàn thiện: CapCut PC hoặc CapCut Mobile.
 2. Quy trình 5 bước dựng video AI cho giáo viên mầm non:
-- Bước 1: Lập kịch bản & Phân cảnh (Storyboarding) theo 5 cảnh ngắn mỗi cảnh 5 giây để giữ sự tập trung của trẻ.
-- Bước 2: Tạo hình ảnh đồng bộ nhân vật bằng các Prompt tiếng Anh ở trên với tỷ lệ khung hình ngang 16:9.
-- Bước 3: Chuyển ảnh tĩnh thành video chuyển động nhẹ nhàng (Image-to-Video).
-- Bước 4: Nhập lời thoại vào công cụ chuyển văn bản thành giọng nói tiếng Việt và ghép nhạc nền không lời vui tươi.
-- Bước 5: Đưa 5 đoạn video vào CapCut, thêm chữ tiêu đề to rõ và xuất file MP4 Full HD chiếu lên tivi lớp học.""")
+- Bước 1: Lập kịch bản & Phân cảnh (Storyboarding) chia nhỏ thành 5 cảnh ngắn 5 giây để giữ sự tập trung của trẻ.
+- Bước 2: Tạo hình ảnh đồng bộ nhân vật bằng các câu Prompt tiếng Anh ở bảng trên với tỷ lệ 16:9.
+- Bước 3: Tải ảnh lên công cụ Image-to-Video để tạo chuyển động mượt mà.
+- Bước 4: Lồng tiếng lời thoại tiếng Việt truyền cảm và chèn nhạc nền vui tươi.
+- Bước 5: Ghép nối các cảnh trên CapCut và xuất video MP4 chiếu lên màn hình lớp học.""")
 
     elif tool_type == "worksheet":
         return clean_markdown_text(f"""PHIẾU HỌC TẬP CHO BÉ ({age.upper()})
@@ -795,7 +949,7 @@ SLIDE 5: CÂU 4 - VỀ ĐÍCH CHIẾN THẮNG
 - Đáp án đúng: A. Rất vui vẻ, hào hứng và học được nhiều điều bổ ích
 - Hiệu ứng: Nhạc chiến thắng rộn ràng, tặng cúp bé ngoan.""")
 
-    else:  # image_prompts
+    else:
         return clean_markdown_text(f"""BỘ PROMPT SINH HÌNH ẢNH MINH HỌA ĐỒNG BỘ TIẾT DẠY
 ĐỀ TÀI: {topic.upper()} | ĐỘ TUỔI: {age}
 
@@ -874,9 +1028,9 @@ def generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_dat
     executor = ThreadPoolExecutor(max_workers=1)
     future = executor.submit(_call_model)
     try:
-        text_out = future.result(timeout=25) 
+        text_out = future.result(timeout=55) 
     except FuturesTimeoutError:
-        error_msg = "Thời gian phản hồi của AI vượt quá 25 giây."
+        error_msg = "Thời gian phản hồi của AI vượt quá 55 giây."
     except Exception as e:
         error_msg = f"Lỗi API: {str(e)}"
     finally:
@@ -916,7 +1070,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 st.title("🧸 Trợ Lý Ảo Toàn Năng - Giáo Viên Mầm Non")
-st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn, tích hợp năng lực số, lên kế hoạch tháng/tuần, sáng tác trò chơi và quản lý lớp học.")
+st.markdown("Hệ thống hỗ trợ soạn giáo án chuẩn bảng 4 cột, tích hợp năng lực số, lên kế hoạch tháng/tuần và bộ công cụ AI giảng dạy.")
 
 saved_plans_count = len(get_all_saved_plans())
 
@@ -1007,7 +1161,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN + BỘ CÔNG CỤ NÂNG CAO (5 TÍNH NĂNG)
+# TAB 1: SOẠN GIÁO ÁN CHUẨN (CHUẨN BẢNG 4 CỘT YOUTUBE + BỘ CÔNG CỤ NÂNG CAO)
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -1017,35 +1171,41 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         school_name = st.text_input("Đơn vị / Trường", "Trường Mầm Non Phước Thạnh")
     with col2:
         class_name = st.text_input("Lớp", "Lớp Mẫu giáo Nhỡ (4-5 tuổi)")
-        theme = st.text_input("Chủ đề lớn / Nhánh", "Nghề nghiệp")
+        theme = st.text_input("Chủ đề lớn / Nhánh", "Thế giới thực vật")
 
     st.markdown("### CHẾ ĐỘ SOẠN THẢO *")
     c_mode1, c_mode2 = st.columns(2)
-    with c_mode1: mode_gv = st.button("🌱 Giáo án thường\nChuẩn mực, tinh gọn, rõ ràng theo đúng phân phối chương trình.", use_container_width=True)
-    with c_mode2: mode_gioi = st.button("⭐ Thi GV Giỏi\nStorytelling, tình huống sáng tạo nhưng KHÔNG vượt chuẩn tuổi.", use_container_width=True)
-    if "soan_mode_val" not in st.session_state: st.session_state["soan_mode_val"] = "Giáo án thường"
+    with c_mode1: mode_gv = st.button("🌱 Giáo án thường\nChuẩn mực, rõ ràng theo đúng phân phối chương trình.", use_container_width=True)
+    with c_mode2: mode_gioi = st.button("⭐ Thi GV Giỏi\nStorytelling, tình huống sáng tạo, câu hỏi phân tầng sâu.", use_container_width=True)
+    if "soan_mode_val" not in st.session_state: st.session_state["soan_mode_val"] = "Thi GV Giỏi"
     if mode_gv: st.session_state["soan_mode_val"] = "Giáo án thường"
     if mode_gioi: st.session_state["soan_mode_val"] = "Thi GV Giỏi"
     st.info(f"👉 Đang chọn chế độ soạn thảo: **{st.session_state['soan_mode_val']}**")
 
-    st.markdown("### ĐỊNH DẠNG HIỂN THỊ GIÁO ÁN")
-    c_fmt1, c_fmt2 = st.columns(2)
-    with c_fmt1: fmt_1col = st.button("📄 1 Cột chuẩn (Toàn cảnh)\nLời dẫn, câu hỏi & hành động của cô theo gạch đầu dòng (-)", use_container_width=True)
-    with c_fmt2: fmt_2col = st.button("📊 2 Cột (Cô & Trẻ)\nHoạt động của giáo viên song song nhiệm vụ dự kiến của trẻ", use_container_width=True)
-    if "display_fmt_val" not in st.session_state: st.session_state["display_fmt_val"] = "1 Cột chuẩn"
-    if fmt_1col: st.session_state["display_fmt_val"] = "1 Cột chuẩn"
-    if fmt_2col: st.session_state["display_fmt_val"] = "2 Cột (Cô & Trẻ)"
+    st.markdown("### ĐỊNH DẠNG BẢNG TIẾN TRÌNH HOẠT ĐỘNG")
+    c_fmt1, c_fmt2, c_fmt3 = st.columns(3)
+    with c_fmt1:
+        fmt_4col = st.button("📊 Bảng 4 cột chuẩn (Mẫu YouTube)\nThời gian | Cô | Trẻ | Quan sát & Hỗ trợ", use_container_width=True)
+    with c_fmt2:
+        fmt_3col = st.button("📋 Bảng 3 cột chuẩn\nThời gian | Hoạt động Cô | Hoạt động Trẻ", use_container_width=True)
+    with c_fmt3:
+        fmt_1col = st.button("📄 1 Cột văn bản (Toàn cảnh)\nGạch đầu dòng (-) không kẻ bảng", use_container_width=True)
+    if "display_fmt_val" not in st.session_state:
+        st.session_state["display_fmt_val"] = "Bảng 4 cột chuẩn (Mẫu YouTube)"
+    if fmt_4col: st.session_state["display_fmt_val"] = "Bảng 4 cột chuẩn (Mẫu YouTube)"
+    if fmt_3col: st.session_state["display_fmt_val"] = "Bảng 3 cột chuẩn"
+    if fmt_1col: st.session_state["display_fmt_val"] = "1 Cột văn bản (Toàn cảnh)"
     st.info(f"👉 Đang chọn định dạng: **{st.session_state['display_fmt_val']}**")
 
     st.markdown("### 1. ĐỘ TUỔI HỌC SINH *")
     age_group = st.radio("Chọn độ tuổi", ["3-12 th", "12-18 th", "18-24 th", "24-36 tháng", "3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], horizontal=True, index=5)
     st.markdown("### 2. LOẠI HÌNH HOẠT ĐỘNG *")
-    activity_type = st.radio("Chọn loại hoạt động", ["Hoạt động học", "Hoạt động góc / Vui chơi", "Hoạt động ngoài trời", "Hoạt động chiều"], horizontal=True)
+    activity_type = st.radio("Chọn loại hoạt động", ["Hoạt động học có chủ đích", "Hoạt động góc / Vui chơi", "Hoạt động ngoài trời", "Hoạt động chiều"], horizontal=True)
 
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown("### 3. LĨNH VỰC PHÁT TRIỂN *")
-        domain = st.selectbox("Lĩnh vực", ["Thể chất", "Nhận thức", "Ngôn ngữ", "Thẩm mỹ", "Tình cảm - KNXH"], key="domain_select_box")
+        domain = st.selectbox("Lĩnh vực", ["Thể chất", "Nhận thức", "Ngôn ngữ", "Thẩm mỹ", "Tình cảm - KNXH"], index=1, key="domain_select_box")
         sub_category = ""
         if domain == "Nhận thức": sub_category = st.selectbox("Phân loại chi tiết", ["Khám phá", "Toán"], key="sub_nhan_thuc")
         elif domain == "Ngôn ngữ": sub_category = st.selectbox("Phân loại chi tiết", ["Chữ cái - tiết tập tô", "Làm quen", "Trò chơi", "Thơ", "Truyện"], key="sub_ngon_ngu")
@@ -1066,79 +1226,153 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
             st.markdown("🎨 **PHÂN LOẠI TIẾT TẠO HÌNH (BẮT BUỘC)**")
             art_type_val = st.radio("Chọn hình thức tiết Tạo hình:", ["Tiết theo mẫu", "Tiết theo đề tài"], horizontal=True, key="art_radio_key")
 
-    st.markdown("### 5. CẤU TRÚC MỤC ĐÍCH - YÊU CẦU:")
-    goal_structure = st.radio("Lựa chọn cấu trúc", ["1-3 gạch đầu dòng", "2-3 mục chuẩn (Kiến thức, Kỹ năng, Thái độ)"], horizontal=True, index=1)
-    st.markdown("### 6. ĐỀ TÀI BÀI DẠY CỤ THỂ * (BẮT BUỘC):")
+    st.markdown("### 5. ĐỀ TÀI BÀI DẠY CỤ THỂ * (BẮT BUỘC):")
     topic = st.text_input("Nhập tên đề tài", "Bé khám phá hành trình lớn lên của hạt đậu")
-    st.markdown("### 7. YÊU CẦU TÍCH HỢP (TÙY CHỌN) - (Chọn 1-2 mục):")
+
+    st.markdown("### 6. YÊU CẦU TÍCH HỢP (TÙY CHỌN):")
     col_c1, col_c2, col_c3, col_c4, col_c5 = st.columns(5)
-    with col_c1: opt0 = st.checkbox("Không")
-    with col_c2: opt1 = st.checkbox("STEAM")
-    with col_c3: opt2 = st.checkbox("CÔNG NGHỆ SỐ")
+    with col_c1: opt0 = st.checkbox("STEAM", value=True)
+    with col_c2: opt1 = st.checkbox("Ứng dụng công nghệ AI", value=True)
+    with col_c3: opt2 = st.checkbox("Giáo dục Cảm xúc - Xã hội (SEL)", value=True)
     with col_c4: opt3 = st.checkbox("Bảo vệ môi trường")
     with col_c5: opt4 = st.checkbox("Quyền trẻ em")
     extras = []
-    if opt1: extras.append("STEAM")
-    if opt2: extras.append("CÔNG NGHỆ SỐ")
+    if opt0: extras.append("STEAM")
+    if opt1: extras.append("Ứng dụng công nghệ AI")
+    if opt2: extras.append("Giáo dục Cảm xúc - Xã hội (SEL)")
     if opt3: extras.append("Bảo vệ môi trường")
     if opt4: extras.append("Quyền trẻ em")
 
-    st.markdown("### 8. MỤC TIÊU CẦN ĐẠT (Tùy chọn):")
-    custom_goals = st.text_area("Nhập MT1, MT45... kèm nội dung thực tế", placeholder="VD:\n- Trẻ nhận biết quá trình nảy mầm và lớn lên của hạt đậu.")
-    st.markdown("### 9. YÊU CẦU BỔ SUNG (Ý TƯỞNG GIÁO VIÊN MUỐN ĐƯA VÀO TIẾT DẠY):")
-    custom_ideas = st.text_area("Nhập ý tưởng riêng", placeholder="Cô hãy nhập các ý tưởng riêng: đạo cụ rối tay, nhạc chủ đề, bài thơ mới...")
-    st.markdown("### 10. ĐÁNH GIÁ CUỐI NGÀY:")
-    auto_assessment = st.checkbox("Quan sát thực tế cho Đánh giá cuối ngày (Mục IV) - Tạo đánh giá luôn", value=True)
-    
+    # MỤC 7: GIÁO ÁN MẪU VÀ HỌC LIỆU THAM KHẢO (GIỐNG VIDEO)
+    with st.expander("📂 7. Giáo án mẫu và học liệu tham khảo (Tùy chọn - Tải file .docx / .txt để AI học theo mẫu)"):
+        ref_c1, ref_c2 = st.columns([2, 1])
+        with ref_c1:
+            uploaded_ref = st.file_uploader("Chọn giáo án mẫu hoặc học liệu (.docx, .txt)", type=["docx", "txt"], key="ref_uploader")
+        with ref_c2:
+            ref_mode = st.selectbox("Cách sử dụng tài liệu:", ["Tham khảo cấu trúc và cách trình bày", "Lấy nội dung tham khảo", "Kết hợp cả hai"], key="ref_mode_sel")
+        ref_note = st.text_input("Lưu ý riêng khi tham khảo:", placeholder="Ví dụ: Chỉ lấy cấu trúc các bước, bài trường không dùng nội dung cũ...", key="ref_note_in")
+
+        extracted_ref_text = ""
+        if uploaded_ref is not None:
+            try:
+                if uploaded_ref.name.lower().endswith(".docx"):
+                    doc_ref = Document(uploaded_ref)
+                    extracted_ref_text = "\n".join([p.text for p in doc_ref.paragraphs if p.text.strip()])[:3500]
+                else:
+                    extracted_ref_text = uploaded_ref.read().decode("utf-8", errors="ignore")[:3500]
+                st.success(f"✅ Đã đọc thành công tài liệu tham khảo: **{uploaded_ref.name}** ({len(extracted_ref_text)} ký tự)")
+            except Exception as ex:
+                st.warning(f"Không đọc được nội dung file: {ex}")
+
+    # MỤC 8: YÊU CẦU RIÊNG CỦA GIÁO VIÊN (GIỐNG VIDEO)
+    st.markdown("### 8. YÊU CẦU RIÊNG CỦA GIÁO VIÊN & ĐỒ DÙNG HIỆN CÓ:")
+    custom_goals = st.text_area("Mục tiêu cần đạt cụ thể (Tùy chọn - Để trống AI tự soạn chuẩn 4 phần):", placeholder="VD:\n- Trẻ nhận biết quá trình nảy mầm và lớn lên của hạt đậu.")
+    yc_c1, yc_c2 = st.columns(2)
+    with yc_c1:
+        custom_ideas = st.text_area("Mong muốn riêng của cô trong giáo án:", placeholder="Ví dụ: Muốn bài dạy có trò chơi mở đầu, câu hỏi gợi mở, hoạt động nhóm 4 trẻ, lồng ghép bài hát...", height=90)
+    with yc_c2:
+        existing_tools = st.text_area("Đồ dùng / Học liệu hiện có của lớp:", placeholder="Ví dụ: Thẻ hình, tranh chữ cái, sách truyện, biểu tượng phát âm, búp bê, vòng thể dục, màu sáp...", height=90)
+
+    img_style_req = st.text_input("Yêu cầu hình ảnh, biểu tượng minh họa (Nếu có):", placeholder="Ví dụ: Sách mở, thẻ chữ cái, ngôi nhà búp bê, biểu tượng phát âm, màu sắc tươi sáng, phù hợp trẻ mầm non...")
+
     plan_info_dict = {
         "school": school_name, "teacher": teacher_name, "class_name": class_name,
         "theme": theme, "domain": domain, "sub_category": sub_category, "activity_type": activity_type,
         "route_type": route_type, "art_type": art_type_val, "topic": topic, "method": "Gemini AI", "age": age_group, "extras": extras,
         "mode": st.session_state["soan_mode_val"], "display_format": st.session_state["display_fmt_val"], 
-        "custom_goals": custom_goals, "custom_ideas": custom_ideas, "auto_assessment": auto_assessment,
-        "doc_title": "GIÁO ÁN TỔ CHỨC HOẠT ĐỘNG HỌC"
+        "custom_goals": custom_goals, "custom_ideas": custom_ideas, "existing_tools": existing_tools,
+        "doc_title": "GIÁO ÁN HOẠT ĐỘNG HỌC CÓ CHỦ ĐÍCH"
     }
 
-    if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH CHI TIẾT", type="primary", use_container_width=True):
-        with st.spinner("⚡ Đang kết nối AI biên soạn kịch bản giáo án SIÊU CHI TIẾT (vui lòng đợi ~5-8 giây)..."):
-            art_prompt_part = f" - Dạng tiết tạo hình: {art_type_val}" if art_type_val else ""
-            
-            prompt = f"""
-            Đóng vai là một Chuyên gia Giáo dục Mầm non xuất sắc của Bộ GD&ĐT Việt Nam, hãy biên soạn một GIÁO ÁN MẦM NON HOÀN CHỈNH, RẤT DÀI VÀ CỰC KỲ CHI TIẾT (Ít nhất 1500 - 2000 từ) để giáo viên có thể cầm lên lớp giảng dạy ngay:
-            - Đề tài: {topic} | Độ tuổi: {age_group} | Chủ đề lớn: {theme}
-            - Lĩnh vực phát triển: {domain} ({sub_category}) | Loại hoạt động: {activity_type} | Dạng tiết: {route_type}
-            {art_prompt_part}
-            - Chế độ: {st.session_state['soan_mode_val']} | Định dạng: {st.session_state['display_fmt_val']}
-            - Mục tiêu cần đạt: {custom_goals if custom_goals else 'Tự động tạo chuẩn 3 mặt: Kiến thức, Kỹ năng, Thái độ (Mỗi mặt viết 3-4 ý rất chi tiết)'}
-            - Tích hợp: {', '.join(extras) if extras else 'Cơ bản'}
-            - Ý tưởng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
-            
-            YÊU CẦU BẮT BUỘC VỀ NỘI DUNG VÀ ĐỘ DÀI:
-            1. BÀI SOẠN PHẢI RẤT DÀI, CHI TIẾT, KHÔNG ĐƯỢC TÓM TẮT HOẶC VIẾT SƠ LƯỢC.
-            2. Phần III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG: Bắt buộc viết dưới dạng KỊCH BẢN TƯƠNG TÁC CHI TIẾT LỜI CÔ VÀ LỜI TRẺ:
-               - Ghi rõ từng lời dẫn dắt, câu hỏi gợi mở của cô (Ví dụ: Cô nói: "...", Cô hỏi: "...")
-               - Ghi rõ các câu trả lời ngây thơ, phong phú của trẻ (Ví dụ: Trẻ hào hứng trả lời: "...")
-               - Cô khen ngợi, sửa sai, gợi mở tư duy cho trẻ.
-            3. Trọng tâm bài học phải chia làm các bước mạch lạc: Khám phá trải nghiệm thực tế -> Cô đàm thoại phân tích sâu -> Trẻ thực hành sáng tạo -> Trò chơi củng cố có luật chơi rõ ràng.
-            4. Lời văn phải ngọt ngào, trong sáng, đúng tâm lý lứa tuổi {age_group}.
+    if st.button("✨ TẠO GIÁO ÁN HOÀN CHỈNH SIÊU CHI TIẾT", type="primary", use_container_width=True):
+        with st.spinner("⚡ Đang kết nối AI biên soạn giáo án chuẩn bảng 4 cột siêu chi tiết (vui lòng đợi ~8-15 giây)..."):
+            art_prompt_part = f" - Hình thức tiết tạo hình: {art_type_val}" if art_type_val else ""
+            disp_fmt_now = st.session_state["display_fmt_val"]
 
-            Trình bày theo đúng 4 mục lớn:
-            I. MỤC ĐÍCH - YÊU CẦU (1. Kiến thức, 2. Kỹ năng, 3. Thái độ)
-            II. CHUẨN BỊ (1. Đồ dùng của cô, 2. Đồ dùng của trẻ, 3. Địa điểm)
-            III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG (Hoạt động 1: Ổn định tổ chức; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc)
-            IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng:
+            if "4 cột" in disp_fmt_now:
+                table_instruction = """
+                Phần III. TIẾN TRÌNH HOẠT ĐỘNG: BẮT BUỘC trình bày dưới dạng BẢNG MARKDOWN 4 CỘT CHÍNH XÁC SAU ĐÂY:
+                | Thời gian | Hoạt động của cô (Lời thoại, câu hỏi & hành động) | Dự kiến hoạt động & Phản hồi của trẻ | Quan sát, Hỗ trợ & Phân hóa |
+                | --- | --- | --- | --- |
+                
+                QUY TẮC VIẾT BẢNG CỰC KỲ QUAN TRỌNG:
+                - Chia thành 5 hàng hoạt động nối tiếp nhau (tổng thời lượng 30 phút):
+                  1. Ổn định - Gây hứng thú (3 - 4 phút)
+                  2. Khám phá trọng tâm & Đàm thoại sâu (8 - 10 phút)
+                  3. Thực hành - Trải nghiệm theo nhóm 4 trẻ & cá nhân (10 phút) - chia rõ Bước 1, Bước 2, Bước 3
+                  4. Trò chơi vận động / Củng cố kiến thức (3 phút) - ghi rõ Luật chơi, Cách chơi
+                  5. Kết thúc - Nhận xét - Chuyển hoạt động (3 phút)
+                - Mỗi hàng của bảng PHẢI nằm trên 1 dòng duy nhất (bắt đầu bằng | và kết thúc bằng |). Để xuống dòng bên trong từng ô của bảng, BẮT BUỘC dùng thẻ <br> (TUYỆT ĐỐI không nhấn Enter xuống dòng giữa chừng trong cùng 1 hàng bảng).
+                - Trong cột 2 (Hoạt động của cô): Ghi cực kỳ chi tiết lời thoại dẫn dắt (Cô nói: "..."), hệ thống câu hỏi gợi mở phân tầng (+ Đố: "...", + Hỏi: "...", + Khơi: "..."), hành động làm mẫu của cô.
+                - Trong cột 3 (Dự kiến hoạt động của trẻ): Ghi rõ phản hồi, hành động và câu trả lời ngây thơ dự kiến của trẻ (- Trẻ trả lời: "...").
+                - Trong cột 4 (Quan sát, Hỗ trợ & Phân hóa): Ghi rõ cách cô quan sát, hỗ trợ riêng cho trẻ nhút nhát/thao tác chậm, và mở rộng nâng cao cho trẻ khá giỏi, nhắc nhở an toàn.
+                """
+            elif "3 cột" in disp_fmt_now:
+                table_instruction = """
+                Phần III. TIẾN TRÌNH HOẠT ĐỘNG: BẮT BUỘC trình bày dưới dạng BẢNG MARKDOWN 3 CỘT:
+                | Thời gian | Hoạt động của cô (Lời thoại, câu hỏi & hành động) | Dự kiến hoạt động & Phản hồi của trẻ |
+                | --- | --- | --- |
+                - Chia thành 5 hoạt động chi tiết; mỗi hàng bảng nằm trên 1 dòng duy nhất, dùng thẻ <br> để xuống dòng bên trong ô.
+                """
+            else:
+                table_instruction = """
+                Phần III. TIẾN TRÌNH HOẠT ĐỘNG: Trình bày văn bản 1 cột theo từng Hoạt động 1, Hoạt động 2 (chia Bước 1, Bước 2, Bước 3), Hoạt động 3; ghi rõ lời thoại Cô nói và Trẻ trả lời.
+                """
+
+            ref_section_prompt = ""
+            if extracted_ref_text:
+                ref_section_prompt = f"\nTÀI LIỆU THAM KHẢO GIÁO VIÊN TẢI LÊN ({ref_mode} - Lưu ý: {ref_note}):\n{extracted_ref_text}\n"
+
+            prompt = f"""
+            Đóng vai là một Chuyên gia Giáo dục Mầm non xuất sắc của Bộ GD&ĐT Việt Nam, hãy biên soạn một GIÁO ÁN HOẠT ĐỘNG HỌC CÓ CHỦ ĐÍCH HOÀN CHỈNH, RẤT DÀI, RÕ RÀNG VÀ CỰC KỲ CHI TIẾT (từ 1800 - 2500 từ):
+            - Trường: {school_name} | Lớp: {class_name} | Người soạn: {teacher_name}
+            - Chủ đề: {theme}
+            - Lĩnh vực phát triển: {domain} ({sub_category} - {route_type})
+            - Tên hoạt động: {topic}{art_prompt_part}
+            - Độ tuổi: {age_group} | Loại hoạt động: {activity_type}
+            - Chế độ soạn: {st.session_state['soan_mode_val']}
+            - Mức độ tích hợp: {', '.join(extras) if extras else 'Cơ bản'}
+            - Mục tiêu giáo viên yêu cầu: {custom_goals if custom_goals else 'Tự động tạo đầy đủ 4 mục chi tiết'}
+            - Mong muốn riêng của giáo viên: {custom_ideas if custom_ideas else 'Không'}
+            - Đồ dùng hiện có của lớp: {existing_tools if existing_tools else 'Đồ dùng mầm non tiêu chuẩn'}
+            - Yêu cầu hình ảnh/biểu tượng: {img_style_req if img_style_req else 'Sinh động, tươi sáng, phù hợp trẻ mầm non'}
+            {ref_section_prompt}
+
+            CẤU TRÚC BẮT BUỘC CỦA GIÁO ÁN:
+            Dòng đầu tiên: GIÁO ÁN HOẠT ĐỘNG HỌC CÓ CHỦ ĐÍCH
+            Các dòng thông tin hành chính (Chủ đề:, Lĩnh vực phát triển:, Tên hoạt động:, Độ tuổi:, Thời lượng: 30 phút, Hình thức tổ chức: Cả lớp, nhóm 4 trẻ, cá nhân, Mức độ tích hợp: ...)
+
+            I. MỤC TIÊU HOẠT ĐỘNG
+            1. Kiến thức: (2-3 gạch đầu dòng cụ thể, sát đề tài)
+            2. Kỹ năng: (3 gạch đầu dòng rõ ràng thao tác rèn luyện)
+            3. Thái độ (Giáo dục Cảm xúc - Xã hội - SEL): (3 gạch đầu dòng)
+            4. Năng lực hình thành:
+            - Tư duy: ...
+            - Giao tiếp: ...
+            - Hợp tác: ...
+            - Giải quyết vấn đề: ...
+
+            II. CHUẨN BỊ
+            1. Đồ dùng của cô: (Nêu rõ video AI/hình ảnh minh họa, nhạc, thẻ quy trình, vật thật, đồ dùng hiện có)
+            2. Đồ dùng của trẻ (Chia theo nhóm 4 trẻ và cá nhân): (Nêu cụ thể số lượng cho nhóm 4 trẻ và từng cá nhân)
+            3. Môi trường & An toàn: (Bố trí lớp học và lưu ý an toàn cho trẻ)
+
+            III. TIẾN TRÌNH HOẠT ĐỘNG
+            {table_instruction}
+
+            IV. ĐÁNH GIÁ CUỐI NGÀY
             - Tình trạng sức khỏe: ...
             - Trạng thái cảm xúc, thái độ: ...
-            - Kiến thức, kỹ năng: ...)
-            
-            Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc số thứ tự.
+            - Kiến thức, kỹ năng: ...
+
+            Tuyệt đối KHÔNG dùng ký tự ### hay **.
             """
             result_text, err = generate_fast_ai_content(api_key, prompt, fallback_type="plan", fallback_data=plan_info_dict)
             
             if err:
-                st.warning(f"⚠️ **Thông báo:** {err}\n\n👉 Đang sử dụng kịch bản mầm non đầy đủ 1.500 từ chuẩn chỉnh.")
+                st.warning(f"⚠️ **Thông báo:** {err}\n\n👉 Đang sử dụng kịch bản chuẩn bảng 4 cột đầy đủ bên dưới.")
             else:
-                st.success("🎉 Đã hoàn thành giáo án chi tiết! Mời cô xem bên dưới:")
+                st.success("🎉 Đã hoàn thành giáo án chuẩn bảng 4 cột siêu chi tiết! Mời cô xem bên dưới:")
 
             st.session_state["generated_plan_text"] = result_text
             st.session_state["plan_info"] = plan_info_dict
@@ -1172,28 +1406,25 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         elif btn_adv_5: selected_adv_tool = "image_prompts"
 
         if selected_adv_tool:
-            base_context = st.session_state.get("generated_plan_text", "")[:1200]
+            base_context = st.session_state.get("generated_plan_text", "")[:1400]
             with st.spinner("⚡ Đang khởi tạo học liệu nâng cao đồng bộ với bài dạy..."):
                 if selected_adv_tool == "quick_script":
                     adv_title = f"Kịch bản dạy nhanh: {topic}"
                     adv_prompt = f"""
-                    Dựa trên đề tài mầm non '{topic}' (Độ tuổi: {age_group}, Chủ đề: {theme}, Lĩnh vực: {domain}), hãy viết một KỊCH BẢN DẠY NHANH (Phao cầm tay lên lớp) thật mạch lạc, dễ nhìn:
-                    - Phân bổ thời gian chi tiết từng phút (00:00 - 30:00) cho: Ổn định & Gây hứng thú -> Khám phá trọng tâm -> Thực hành trải nghiệm -> Trò chơi củng cố -> Kết thúc.
-                    - Ghi rõ các câu lời dẫn chuyển tiếp ngắn gọn, vè/đồng dao tập trung trẻ và 3-4 câu hỏi gợi mở cốt lõi của cô.
+                    Dựa trên đề tài mầm non '{topic}' (Độ tuổi: {age_group}, Chủ đề: {theme}, Lĩnh vực: {domain}), hãy viết một KỊCH BẢN DẠY NHANH (Phao cầm tay lên lớp) trình bày dạng BẢNG MARKDOWN 3 CỘT:
+                    | Thời gian | Nội dung hoạt động | Lời dẫn & Câu hỏi cốt lõi của cô |
+                    | --- | --- | --- |
+                    - Phân bổ thời gian từng phút (00:00 - 30:00) cho 5 bước hoạt động; dùng thẻ <br> để xuống dòng bên trong ô bảng, mỗi hàng nằm trên 1 dòng.
                     Tuyệt đối không dùng dấu ### hay **.
                     """
                 elif selected_adv_tool == "video_ai":
                     adv_title = f"Kịch bản video AI: {topic}"
                     adv_prompt = f"""
-                    Hãy viết một KỊCH BẢN VIDEO AI MINH HỌA TIẾT DẠY MẦM NON thật chi tiết cho đề tài '{topic}' (Độ tuổi: {age_group}, Chủ đề: {theme}):
-                    - Chia thành 5 - 6 cảnh quay (mỗi cảnh 5 giây).
-                    - Mỗi cảnh trình bày rõ ràng các mục:
-                      CẢNH X (Thời lượng: 5 giây):
-                      - Hình ảnh: (Mô tả chi tiết bối cảnh lớp học mầm non Việt Nam, nhân vật bé và cô giáo)
-                      - Lời thoại: (Lời thuyết minh tiếng Việt truyền cảm, dễ hiểu cho bé {age_group})
-                      - Âm thanh: (Nhạc nền và hiệu ứng âm thanh)
-                      - Prompt tiếng Anh: (Câu lệnh tiếng Anh chi tiết phong cách hoạt hình 3D Pixar trẻ em Việt Nam để dán vào AI tạo ảnh/video, kết thúc bằng --ar 16:9)
-                    - Cuối bài thêm mục: VII. QUY TRÌNH 5 BƯỚC DỰNG VIDEO AI & DANH SÁCH TÀI NGUYÊN (Midjourney/Canva, Kling AI/Runway, CapCut).
+                    Hãy viết một KỊCH BẢN VIDEO AI MINH HỌA TIẾT DẠY MẦM NON trình bày dạng BẢNG MARKDOWN 5 CỘT cho đề tài '{topic}' (Độ tuổi: {age_group}, Chủ đề: {theme}):
+                    | Cảnh | Thời lượng | Hình ảnh minh họa | Lời thoại & Âm thanh | Prompt tiếng Anh (Tạo ảnh/video 3D) |
+                    | --- | --- | --- | --- | --- |
+                    - Gồm 5 - 6 cảnh quay (mỗi cảnh 5 giây). Mỗi hàng bảng nằm trên 1 dòng duy nhất, dùng thẻ <br> để xuống dòng trong ô.
+                    - Cuối bảng viết thêm mục: VII. QUY TRÌNH 5 BƯỚC DỰNG VIDEO AI & DANH SÁCH TÀI NGUYÊN (Midjourney/Canva, Kling AI/Runway, CapCut).
                     Tuyệt đối không dùng dấu ### hay **.
                     """
                 elif selected_adv_tool == "worksheet":
@@ -1201,8 +1432,8 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                     adv_prompt = f"""
                     Thiết kế một PHIẾU HỌC TẬP IN A4 CHO TRẺ MẦM NON lứa tuổi {age_group} về đề tài '{topic}' (Chủ đề: {theme}):
                     - Có phần tiêu đề (Trường, Lớp, Họ và tên bé).
-                    - Thiết kế 4 BÀI TẬP TRỰC QUAN phù hợp lứa tuổi {age_group} (VD: Bài tập 1: Quan sát & Tô màu; Bài tập 2: Nối cặp đôi tương ứng; Bài tập 3: Đếm số lượng & Khoanh tròn; Bài tập 4: Góc vẽ sáng tạo của bé).
-                    - Mỗi bài tập nêu rõ: Yêu cầu dành cho bé, Cách cô/bố mẹ hướng dẫn, và Mô tả bố cục hình vẽ trên phiếu để giáo viên dễ thiết kế/in ấn.
+                    - Thiết kế 4 BÀI TẬP TRỰC QUAN phù hợp lứa tuổi {age_group} (Bài tập 1: Quan sát & Tô màu; Bài tập 2: Nối cặp đôi tương ứng; Bài tập 3: Đếm số lượng & Khoanh tròn; Bài tập 4: Góc vẽ sáng tạo của bé).
+                    - Mỗi bài tập nêu rõ: Yêu cầu dành cho bé, Cách cô hướng dẫn và Mô tả bố cục hình vẽ trên phiếu.
                     Tuyệt đối không dùng dấu ### hay **.
                     """
                 elif selected_adv_tool == "pptx_game":
@@ -1220,14 +1451,12 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                       - Hiệu ứng: [Mô tả âm thanh/hiệu ứng chúc mừng]
                     Tuyệt đối không dùng dấu ### hay **.
                     """
-                else:  # image_prompts
+                else:
                     adv_title = f"Prompt sinh hình ảnh: {topic}"
                     adv_prompt = f"""
                     Tạo BỘ 6 PROMPT SINH HÌNH ẢNH MINH HỌA ĐỒNG BỘ TIẾT DẠY cho đề tài '{topic}' (Độ tuổi: {age_group}, Chủ đề: {theme}):
                     - Đồng bộ theo tiến trình tiết dạy: (1) Ảnh bìa slide mở đầu, (2) Ảnh tình huống gây hứng thú, (3) Ảnh trực quan kiến thức 1, (4) Ảnh trực quan kiến thức 2, (5) Ảnh hoạt động thực hành nhóm, (6) Ảnh sticker phần thưởng bé ngoan.
-                    - Mỗi mục ghi rõ:
-                      + Mục đích sử dụng trong tiết dạy (tiếng Việt)
-                      + Prompt tiếng Anh chi tiết (phong cách hoạt hình 3D Pixar tươi sáng, nhân vật cô giáo và trẻ em mầm non Việt Nam, kèm tỷ lệ --ar 16:9 hoặc --ar 1:1).
+                    - Mỗi mục ghi rõ: Mục đích sử dụng trong tiết dạy (tiếng Việt) và Prompt tiếng Anh chi tiết (phong cách hoạt hình 3D Pixar tươi sáng, nhân vật cô giáo và trẻ em mầm non Việt Nam, kèm tỷ lệ --ar 16:9 hoặc --ar 1:1).
                     Tuyệt đối không dùng dấu ### hay **.
                     """
 
@@ -1308,7 +1537,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
         with btn_col1:
             docx_file = export_docx_from_text(st.session_state["generated_plan_text"], info, custom_template=None, font_size_pt=current_font_size)
             with open(docx_file, "rb") as file:
-                st.download_button(label="📥 Tải File Word (.docx)", data=file, file_name=docx_file, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True, key="dl_main_plan_btn")
+                st.download_button(label="📥 Tải File Word Chuẩn Bảng (.docx)", data=file, file_name=docx_file, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True, key="dl_main_plan_btn")
         with btn_col2:
             render_copy_and_print_buttons(st.session_state["generated_plan_text"], f"Giáo Án: {info['topic']}", current_font_size, "tab1_main")
 
@@ -1492,9 +1721,9 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
 
     st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
     if st.button("🚀 Soạn Giáo Án Với AI", type="primary", use_container_width=True, key="btn_create_digital_plan"):
-        with st.spinner("⚡ Đang kết nối AI thiết kế Giáo án Năng lực số siêu chi tiết (vui lòng đợi ~5-8 giây)..."):
+        with st.spinner("⚡ Đang kết nối AI thiết kế Giáo án Năng lực số chuẩn bảng 4 cột (vui lòng đợi ~8-15 giây)..."):
             prompt_digital = f"""
-            Đóng vai là Chuyên gia Giáo dục Mầm non xuất sắc, hãy biên soạn một GIÁO ÁN MẦM NON TÍCH HỢP NĂNG LỰC SỐ & AI CHUẨN BỘ GD&ĐT VIỆT NAM (Dài ít nhất 1500 - 2000 từ):
+            Đóng vai là Chuyên gia Giáo dục Mầm non xuất sắc, hãy biên soạn một GIÁO ÁN MẦM NON TÍCH HỢP NĂNG LỰC SỐ & AI CHUẨN BỘ GD&ĐT VIỆT NAM (Dài ít nhất 1800 - 2200 từ):
             - Trường: {dg_school} | Giáo viên: {dg_teacher} | Lớp: {dg_class} ({dg_age}) | Số trẻ: {dg_num_kids}
             - Chủ đề lớn: {dg_theme} | Tên hoạt động số: {dg_topic}
             - Lĩnh vực: {dg_domain} | Loại hoạt động: {dg_act_type} | Thời lượng: {dg_duration}
@@ -1508,18 +1737,22 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
             - Ghi chú riêng: {dg_extra_notes}
 
             YÊU CẦU BẮT BUỘC:
-            1. BÀI SOẠN PHẢI RẤT DÀI, CHI TIẾT, KHÔNG TÓM TẮT.
-            2. Phần III. TIẾN TRÌNH HOẠT ĐỘNG: Trình bày dạng KỊCH BẢN TƯƠNG TÁC CHI TIẾT LỜI CÔ - LỜI TRẺ.
+            1. Phần III. TIẾN TRÌNH HOẠT ĐỘNG: Trình bày dưới dạng BẢNG MARKDOWN 4 CỘT:
+               | Thời gian | Hoạt động của cô (Lời thoại, câu hỏi & hành động) | Dự kiến hoạt động & Phản hồi của trẻ | Quan sát, Hỗ trợ & Phân hóa |
+               | --- | --- | --- | --- |
+               Mỗi hàng bảng nằm trên 1 dòng duy nhất, dùng thẻ <br> để xuống dòng bên trong từng ô.
+            2. Ghi chi tiết lời cô dẫn dắt tương tác thiết bị số và câu trả lời của trẻ.
+
             Trình bày chuẩn 4 phần:
-            I. MỤC ĐÍCH - YÊU CẦU
+            I. MỤC TIÊU HOẠT ĐỘNG
             II. CHUẨN BỊ HỌC LIỆU & KHÔNG GIAN SỐ
-            III. TIẾN TRÌNH TỔ CHỨC HOẠT ĐỘNG TÍCH HỢP NĂNG LỰC SỐ (Hoạt động 1: Mở đầu; Hoạt động 2: Trọng tâm; Hoạt động 3: Kết thúc)
+            III. TIẾN TRÌNH HOẠT ĐỘNG
             IV. ĐÁNH GIÁ CUỐI NGÀY (Bắt buộc gồm đúng 3 dòng:
             - Tình trạng sức khỏe: ...
             - Trạng thái cảm xúc, thái độ: ...
             - Kiến thức, kỹ năng: ...)
 
-            Tuyệt đối KHÔNG sử dụng ký tự ### hay **. Dùng gạch đầu dòng (-) hoặc số thứ tự.
+            Tuyệt đối KHÔNG sử dụng ký tự ### hay **.
             """
             res_digital, err = generate_fast_ai_content(api_key, prompt_digital, fallback_type="digital", fallback_data=digital_info_dict)
             if err:
@@ -1540,7 +1773,7 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
         with db_col1:
             d_docx = export_docx_from_text(st.session_state["saved_digital_plan"], d_info, font_size_pt=d_font_size)
             with open(d_docx, "rb") as f_d:
-                st.download_button(label="📥 Tải File Word (.docx)", data=f_d, file_name=d_docx, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True, key="dl_digital_btn")
+                st.download_button(label="📥 Tải File Word Chuẩn Bảng (.docx)", data=f_d, file_name=d_docx, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", type="primary", use_container_width=True, key="dl_digital_btn")
         with db_col2:
             render_copy_and_print_buttons(st.session_state["saved_digital_plan"], f"Giáo Án Năng Lực Số: {d_info['topic']}", d_font_size, "tab_digital")
 
