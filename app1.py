@@ -1150,7 +1150,8 @@ saved_plans_count = len(get_all_saved_plans())
 
 with st.sidebar:
     st.markdown("### 📌 Danh Mục Tính Năng")
-    app_mode = st.radio("Chọn tác vụ:", [
+    # Cố định danh sách lựa chọn & key="main_nav_radio" để không bao giờ bị reset về Admin khi lưu bài
+    nav_options = [
         "👑 Quản Lý Khách Thuê (Admin)", 
         "📝 Soạn Giáo Án Chuẩn", 
         "💻 Tích Hợp Năng Lực Số",
@@ -1158,7 +1159,7 @@ with st.sidebar:
         "🎯 Trò Chơi & Đố Vui", 
         "💬 Sổ Liên Lạc & Zalo", 
         "✂️ Gợi Ý Đồ Dùng DIY", 
-        f"📚 Kho Lịch Sử Giáo Án ({saved_plans_count} bài)"
+        "📚 Kho Lịch Sử Giáo Án"
     ] if st.session_state["is_admin"] else [
         "📝 Soạn Giáo Án Chuẩn", 
         "💻 Tích Hợp Năng Lực Số", 
@@ -1166,8 +1167,10 @@ with st.sidebar:
         "🎯 Trò Chơi & Đố Vui", 
         "💬 Sổ Liên Lạc & Zalo", 
         "✂️ Gợi Ý Đồ Dùng DIY", 
-        f"📚 Kho Lịch Sử Giáo Án ({saved_plans_count} bài)"
-    ])
+        "📚 Kho Lịch Sử Giáo Án"
+    ]
+    app_mode = st.radio("Chọn tác vụ:", nav_options, key="main_nav_radio")
+    st.caption(f"📂 Kho lưu trữ hiện có: **{saved_plans_count} bài**")
     st.divider()
     
     if st.session_state.get("api_key_saved"):
@@ -1235,7 +1238,7 @@ if st.session_state["is_admin"] and app_mode == "👑 Quản Lý Khách Thuê (A
         st.markdown(f"- **Mã:** `{l_key}` | **Khách:** {l_name} | **Hạn:** {l_exp} | **Trạng thái:** {status_text}")
 
 # =========================================================================
-# TAB 1: SOẠN GIÁO ÁN CHUẨN (GIỮ NGUYÊN 100%)
+# TAB 1: SOẠN GIÁO ÁN CHUẨN
 # =========================================================================
 elif app_mode == "📝 Soạn Giáo Án Chuẩn":
     st.subheader("📝 Thiết Lập Thông Số Giáo Án (Chuẩn Chương Trình GDMN)")
@@ -1630,7 +1633,7 @@ elif app_mode == "📝 Soạn Giáo Án Chuẩn":
                 st.rerun()
 
 # =========================================================================
-# TAB 2: TÍCH HỢP NĂNG LỰC SỐ (GIỮ NGUYÊN 100% 4 KHỐI)
+# TAB 2: TÍCH HỢP NĂNG LỰC SỐ (ĐẦY ĐỦ 4 KHỐI)
 # =========================================================================
 elif app_mode == "💻 Tích Hợp Năng Lực Số":
     head_c1, head_c2 = st.columns([3, 1])
@@ -1866,14 +1869,11 @@ elif app_mode == "💻 Tích Hợp Năng Lực Số":
                 st.rerun()
 
 # =========================================================================
-# TAB 3: KẾ HOẠCH & SỔ CHỦ ĐỀ (ĐÃ KHÔI PHỤC ĐẦY ĐỦ THÔNG TIN CHI TIẾT)
+# TAB 3: KẾ HOẠCH & SỔ CHỦ ĐỀ
 # =========================================================================
 elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
     sub_tab_month, sub_tab_week = st.tabs(["📅 Kế Hoạch Tháng & Sổ Chủ Đề", "📋 Kế Hoạch Giáo Dục Tuần"])
     
-    # ---------------------------------------------------------------------
-    # SUB-TAB 1: KẾ HOẠCH THÁNG & SỔ CHỦ ĐỀ CHUYÊN SÂU
-    # ---------------------------------------------------------------------
     with sub_tab_month:
         st.subheader("📖 Thiết Kế Kế Hoạch Tháng & Sổ Chủ Đề (Chuẩn Chương Trình GDMN)")
         st.caption("Xây dựng trọn bộ Sổ chủ đề: Mục tiêu 5 lĩnh vực, Mạng nội dung, Mạng hoạt động, Bảng phân phối 4-5 tuần và Hoạt động góc.")
@@ -2034,9 +2034,6 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                     st.session_state["saved_month_plan"] = clean_markdown_text(ed_m)
                     st.rerun()
 
-    # ---------------------------------------------------------------------
-    # SUB-TAB 2: KẾ HOẠCH GIÁO DỤC TUẦN CHUYÊN SÂU
-    # ---------------------------------------------------------------------
     with sub_tab_week:
         st.subheader("📋 Thiết Kế Kế Hoạch Giáo Dục Tuần (Chi Tiết Từ Thứ 2 - Thứ 6)")
         st.caption("Thiết kế đầy đủ 5 thời điểm sinh hoạt trong ngày, hoạt động học có chủ đích và tổ chức 5 góc chơi trong tuần.")
@@ -2216,7 +2213,7 @@ elif app_mode == "🗓️ Kế Hoạch & Sổ Chủ Đề":
                     st.rerun()
 
 # ==========================================
-# CÁC TAB CHỨC NĂNG KHÁC (GIỮ NGUYÊN 100%)
+# CÁC TAB CHỨC NĂNG KHÁC
 # ==========================================
 elif app_mode == "🎯 Trò Chơi & Đố Vui":
     st.subheader("🎯 Sáng Tác Trò Chơi, Câu Đố & Bài Thơ Mầm Non")
@@ -2248,9 +2245,9 @@ elif app_mode == "✂️ Gợi Ý Đồ Dùng DIY":
             st.markdown(format_text_to_standard_html(res, 14), unsafe_allow_html=True)
 
 # =========================================================================
-# TAB KHO LỊCH SỬ GIÁO ÁN (GIỮ NGUYÊN 100%)
+# TAB KHO LỊCH SỬ GIÁO ÁN
 # =========================================================================
-elif "📚 Kho Lịch Sử Giáo Án" in app_mode:
+elif app_mode == "📚 Kho Lịch Sử Giáo Án":
     st.subheader("📚 Kho Lưu Trữ Giáo Án Đã Soạn")
     st.caption("Toàn bộ các giáo án, kế hoạch và học liệu nâng cao cô vừa soạn sẽ được tự động lưu trữ tại đây để mở lại hoặc tải về máy.")
     
